@@ -9,10 +9,11 @@ function ensureAuth() {
 }
 
 // Helper function to check if error is auto-cancellation
-function isAutoCancelled(error: any): boolean {
-  return error?.isAbort === true || 
-         error?.message?.includes('autocancelled') || 
-         error?.status === 0
+function isAutoCancelled(error: unknown): boolean {
+  const err = error as { isAbort?: boolean; message?: string; status?: number }
+  return err?.isAbort === true || 
+         err?.message?.includes('autocancelled') || 
+         err?.status === 0
 }
 
 // Image upload function for markdown notes
@@ -28,7 +29,7 @@ export async function uploadImage(file: File): Promise<string> {
     // Return the file URL that can be used in markdown
     const imageUrl = pb.files.getURL(record, record.image)
     return imageUrl
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (isAutoCancelled(error)) {
       console.log('Upload image request was auto-cancelled')
       throw new Error('Upload cancelled')
@@ -66,14 +67,15 @@ export async function createNote(title: string, content: string = ''): Promise<N
       user: userId
     })
     return record as unknown as Note
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (isAutoCancelled(error)) {
       // Auto-cancelled request, silently ignore
       console.log('Create note request was auto-cancelled')
       throw new Error('Request cancelled')
     }
     
-    if (error.status === 400 && error.message?.includes('user')) {
+    const err = error as { status?: number; message?: string }
+    if (err.status === 400 && err.message?.includes('user')) {
       // User field doesn't exist, create without it for now
       console.warn('User field not found in notes collection. Creating note without user association.')
       const record = await pb.collection(notesCollection).create({
@@ -96,14 +98,15 @@ export async function getNotes(): Promise<Note[]> {
       filter: `user = "${userId}"`
     })
     return records as unknown as Note[]
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (isAutoCancelled(error)) {
       // Auto-cancelled request, silently return empty array and let other request complete
       console.log('Get notes request was auto-cancelled')
       return []
     }
     
-    if (error.status === 400) {
+    const err = error as { status?: number }
+    if (err.status === 400) {
       // User field doesn't exist, get all notes for now
       console.warn('User field not found in notes collection. Showing all notes.')
       try {
@@ -111,7 +114,7 @@ export async function getNotes(): Promise<Note[]> {
           sort: '-updated'
         })
         return records as unknown as Note[]
-      } catch (fallbackError: any) {
+      } catch (fallbackError: unknown) {
         if (isAutoCancelled(fallbackError)) {
           console.log('Fallback get notes request was auto-cancelled')
           return []
@@ -136,13 +139,14 @@ export async function getNote(id: string): Promise<Note> {
     }
     
     return record as unknown as Note
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (isAutoCancelled(error)) {
       console.log('Get note request was auto-cancelled')
       throw new Error('Request cancelled')
     }
     
-    if (error.status === 404) {
+    const err = error as { status?: number }
+    if (err.status === 404) {
       throw new Error('Note not found')
     }
     throw error
@@ -150,7 +154,7 @@ export async function getNote(id: string): Promise<Note> {
 }
 
 export async function updateNote(id: string, data: Partial<Note>): Promise<Note> {
-  const userId = ensureAuth()
+  ensureAuth()
   
   console.log('🔄 notes-api updateNote called with:', {
     id,
@@ -176,7 +180,7 @@ export async function updateNote(id: string, data: Partial<Note>): Promise<Note>
     })
     
     return record as unknown as Note
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (isAutoCancelled(error)) {
       console.log('Update note request was auto-cancelled')
       throw new Error('Request cancelled')
@@ -187,7 +191,7 @@ export async function updateNote(id: string, data: Partial<Note>): Promise<Note>
 }
 
 export async function deleteNote(id: string): Promise<boolean> {
-  const userId = ensureAuth()
+  ensureAuth()
   
   try {
     // First verify we can access the note
@@ -196,7 +200,7 @@ export async function deleteNote(id: string): Promise<boolean> {
     // Delete the note
     await pb.collection(notesCollection).delete(id)
     return true
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (isAutoCancelled(error)) {
       console.log('Delete note request was auto-cancelled')
       return false
@@ -213,19 +217,20 @@ export async function searchNotes(query: string): Promise<Note[]> {
   }
   
   try {
-    // First try with user filter
+    // First try with user filter - sort by updated to get consistent ordering
     const records = await pb.collection(notesCollection).getFullList({
       filter: `user = "${userId}" && (title ~ "${query}" || content ~ "${query}")`,
       sort: '-updated'
     })
     return records as unknown as Note[]
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (isAutoCancelled(error)) {
       console.log('Search notes request was auto-cancelled')
       return []
     }
     
-    if (error.status === 400) {
+    const err = error as { status?: number }
+    if (err.status === 400) {
       // User field doesn't exist, search all notes for now
       console.warn('User field not found in notes collection. Searching all notes.')
       try {
@@ -234,7 +239,7 @@ export async function searchNotes(query: string): Promise<Note[]> {
           sort: '-updated'
         })
         return records as unknown as Note[]
-      } catch (fallbackError: any) {
+      } catch (fallbackError: unknown) {
         if (isAutoCancelled(fallbackError)) {
           console.log('Fallback search notes request was auto-cancelled')
           return []
@@ -243,6 +248,58 @@ export async function searchNotes(query: string): Promise<Note[]> {
         return []
       }
     }
+    throw error
+  }
+}
+
+// Pin note functionality
+export async function pinNote(id: string): Promise<Note> {
+  ensureAuth()
+  
+  console.log('📌 notes-api pinNote called with:', { id })
+  
+  try {
+    // First verify we can access the note
+    await getNote(id)
+    
+    // Update the note to set pinned to true
+    const record = await pb.collection(notesCollection).update(id, { pinned: true })
+    
+    console.log('✅ notes-api pinNote successful:', { id, pinned: true })
+    
+    return record as unknown as Note
+  } catch (error: unknown) {
+    if (isAutoCancelled(error)) {
+      console.log('Pin note request was auto-cancelled')
+      throw new Error('Request cancelled')
+    }
+    console.error('❌ notes-api pinNote failed:', error)
+    throw error
+  }
+}
+
+// Unpin note functionality
+export async function unpinNote(id: string): Promise<Note> {
+  ensureAuth()
+  
+  console.log('📌 notes-api unpinNote called with:', { id })
+  
+  try {
+    // First verify we can access the note
+    await getNote(id)
+    
+    // Update the note to set pinned to false
+    const record = await pb.collection(notesCollection).update(id, { pinned: false })
+    
+    console.log('✅ notes-api unpinNote successful:', { id, pinned: false })
+    
+    return record as unknown as Note
+  } catch (error: unknown) {
+    if (isAutoCancelled(error)) {
+      console.log('Unpin note request was auto-cancelled')
+      throw new Error('Request cancelled')
+    }
+    console.error('❌ notes-api unpinNote failed:', error)
     throw error
   }
 } 

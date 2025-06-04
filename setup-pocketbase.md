@@ -60,13 +60,19 @@ Add the following fields to the `notes` collection:
 - **Required**: No
 - **Max length**: Leave empty (unlimited)
 
-### Field 3: user (NEW - REQUIRED)
+### Field 3: user (REQUIRED)
 - **Type**: Relation
 - **Name**: `user`
 - **Collection**: `users`
 - **Required**: Yes
 - **Display fields**: `email`
 - **Cascade delete**: No
+
+### Field 4: pinned (NEW - For Pin Functionality)
+- **Type**: Bool
+- **Name**: `pinned`
+- **Required**: No
+- **Default**: `false`
 
 ## 7. Configure API Rules for Notes Collection
 
@@ -85,6 +91,8 @@ If you already have notes in your collection without the user field, you'll need
 1. **Option A**: Delete all existing notes and let users create new ones
 2. **Option B**: Manually assign existing notes to a user in the PocketBase admin panel
 
+**Note**: The new `pinned` field will default to `false` for existing notes.
+
 ## 9. Test the Setup
 
 1. **Start your Next.js app**: `npm run dev`
@@ -94,7 +102,13 @@ If you already have notes in your collection without the user field, you'll need
    - **Test Login**: Use the pre-configured test account
    - **Create Account**: Make your own account with email/password
 
-## 10. Troubleshooting
+## 10. New Features Available
+With the updated sidebar, you now have:
+- **Auto-sort by most recently modified**: Notes automatically sort with the most recently modified at the top
+- **Pin favorite notes**: Click the pin icon to pin important notes to the top of the sidebar
+- **Visual indicators**: Pinned notes show a pin badge and hover effects for easy interaction
+
+## 11. Troubleshooting
 
 ### Error: "Failed to create record" 
 - **Cause**: Missing users collection or wrong collection type
@@ -118,7 +132,11 @@ If you already have notes in your collection without the user field, you'll need
 - **Cause**: Users collection missing or misconfigured
 - **Solution**: Delete the users collection and recreate it as type `Auth`
 
-## 11. App Features
+### Pin functionality not working
+- **Cause**: Missing pinned field in notes collection
+- **Solution**: Add the `pinned` field to the notes collection (see Field 4 in step 6)
+
+## 12. App Features
 Once set up correctly, your app will:
 - **Show user-specific notes only** (each user sees only their own notes)
 - **Redirect to auth page** when not logged in
@@ -126,4 +144,6 @@ Once set up correctly, your app will:
 - **Auto-refresh** notes after saving/creating
 - **Keep you logged in** across browser sessions
 - **Allow account creation** and login
-- **Handle authentication errors gracefully** with retry logic 
+- **Handle authentication errors gracefully** with retry logic
+- **Auto-sort notes** by most recently modified with pinned notes at the top
+- **Pin/unpin notes** with visual feedback and tooltips 

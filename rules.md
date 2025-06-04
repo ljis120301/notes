@@ -1,151 +1,136 @@
-# Auto-Save Implementation Prompt for Claude 4 Sonnet
+# Claude 4 Sonnet: Sidebar Auto-Sort & Pin Functionality Implementation
 
-You are tasked with implementing a Google Docs-style auto-save feature for a Next.js notes app. This is a **critical production feature** that requires complete, robust implementation with zero shortcuts or placeholder code.
+## Task Overview
+You are tasked with implementing sidebar functionality for a Next.js 15.3.3 notes application that uses Tiptap editor, Tailwind CSS 4, and PocketBase backend. The sidebar needs two key features:
+1. **Auto-sort by most recently modified** - Notes should automatically sort with the most recently modified at the top
+2. **Pin favorite notes** - Users can pin important notes to keep them at the top of the sidebar
 
-## STRICT REQUIREMENTS - NO EXCEPTIONS
+## Critical Requirements
 
-### 1. COMPLETION STANDARDS
-- **NEVER use placeholders, TODOs, or "implement this later" comments**
-- **NEVER skip error handling or edge cases**
-- **NEVER provide incomplete code snippets**
-- Every function, hook, and component must be fully functional and production-ready
-- All code must be complete with proper error boundaries and fallback states
-- If you encounter ANY bugs during implementation, you MUST resolve them completely before proceeding
+### 🚨 NON-NEGOTIABLES
+- **DO NOT take shortcuts or leave incomplete implementations**
+- **DO NOT interfere with existing PocketBase backend calls or connection**
+- **MUST resolve ALL bugs encountered during implementation**
+- **MUST follow Next.js 15.3.3 best practices throughout**
+- **MUST use Shadcn/ui components exclusively for UI elements**
+- **COMPLETE the entire task fully before responding**
 
-### 2. TECHNOLOGY STACK CONSTRAINTS
-- **Next.js 15.3.3** - Follow latest App Router patterns and best practices
-- **Tailwind CSS 4** - Use only Tailwind 4 syntax and features
-- **Tiptap Editor** - Integrate with existing Tiptap npm docs component
-- **PocketBase Backend** - DO NOT modify, interfere with, or risk existing backend connections
-- **TypeScript** - All code must be fully typed with proper interfaces
+### Technology Stack
+- **Framework**: Next.js 15.3.3
+- **Styling**: Tailwind CSS 4
+- **Editor**: Tiptap (refer to official npm documentation)
+- **UI Components**: Shadcn/ui (check installation status, install if needed)
+- **Backend**: PocketBase (DO NOT MODIFY backend calls)
 
-### 3. BACKEND INTEGRATION RULES
-- **PRESERVE all existing PocketBase API calls and connection logic**
-- **DO NOT modify existing authentication or data fetching patterns**
-- **DO NOT change existing database schema or field names**
-- **ONLY add new frontend auto-save logic that works with existing backend**
-- **MUST maintain backward compatibility with current save mechanisms**
+## Implementation Requirements
 
-### 4. AUTO-SAVE FEATURE SPECIFICATIONS
-
-#### Core Functionality:
-- **Debounced auto-save** - Save after user stops typing (configurable delay, default 2 seconds)
-- **Visual indicators** - Clear status showing "Saving...", "Saved", or "Error" states
-- **Conflict resolution** - Handle concurrent edits gracefully
-- **Offline support** - Queue saves when offline, sync when back online
-- **Performance optimization** - Only save when content actually changes
-- **Error recovery** - Retry failed saves with exponential backoff
-
-#### Technical Implementation:
-- **Custom React hooks** for auto-save logic
-- **Proper cleanup** of timers and subscriptions
-- **Memoization** to prevent unnecessary re-renders
-- **Optimistic updates** with rollback on failure
-- **Local storage backup** for unsaved changes
-- **Network status detection** and appropriate handling
-
-#### User Experience:
-- **Non-intrusive** - Never block user from typing or editing
-- **Informative** - Always show current save status
-- **Reliable** - Guarantee no data loss under normal conditions
-- **Fast** - Minimize perceived latency
-
-### 5. INTEGRATION REQUIREMENTS
-
-#### With Tiptap:
-- Hook into Tiptap's transaction system for change detection
-- Maintain editor focus and cursor position during saves
-- Preserve all existing Tiptap extensions and configurations
-- Handle rich text content serialization properly
-
-#### With Next.js 15.3.3:
-- Use Server Components where appropriate
-- Implement proper client-side state management
-- Follow App Router conventions for data fetching
-- Utilize React 18+ features (concurrent features, Suspense, etc.)
-- Implement proper loading states and error boundaries
-
-#### With Tailwind 4:
-- Use container queries and modern CSS features
-- Implement proper responsive design
-- Use CSS custom properties for theming
-- Follow Tailwind 4 best practices for component styling
+### 1. Shadcn/ui Component Management
+```bash
+# First, ONLY use shadcn components:
+# DO NOT create components
+# Install any missing components needed for the sidebar:
+# Common components you may need:
 
 
+### 2. Sidebar Auto-Sort Functionality
+- Implement automatic sorting by `lastModified` timestamp
+- Sort should happen in real-time as notes are modified
+- Most recently modified note should appear at the top
+- Maintain sort order persistence across page refreshes
+- Handle edge cases (notes without timestamps, identical timestamps)
 
-### 6. IMPLEMENTATION CHECKLIST
+### 3. Pin Favorite Notes Feature
+- Add pin/unpin toggle button for each note in sidebar
+- Pinned notes should always appear above unpinned notes
+- Within pinned section, maintain chronological order by last modified
+- Visual indicator for pinned status (pin icon, different styling)
+- Persist pin status (likely in PocketBase, but respect existing data structure)
 
-You must implement ALL of the following:
+### 4. UI/UX Requirements
+- Use Shadcn/ui components for all interactive elements
+- Implement smooth animations for reordering and pin state changes
+- Add tooltips for pin/unpin actions
+- Responsive design that works on mobile and desktop
+- Accessibility features (keyboard navigation, screen reader support)
+- Visual feedback for user actions
 
-**Core Auto-Save Logic:**
-- [ ] Debounced save mechanism with configurable delay
-- [ ] Change detection that ignores cursor/selection changes
-- [ ] Save queue management for multiple rapid changes
-- [ ] Optimistic updates with proper rollback
+### 5. State Management
+- Use appropriate React state management (useState, useReducer, or context)
+- Implement optimistic updates for better UX
+- Handle loading states gracefully
+- Implement error boundaries for robust error handling
 
-**Error Handling:**
-- [ ] Network error recovery with exponential backoff
-- [ ] Validation error handling and user feedback
-- [ ] Concurrent edit conflict resolution
-- [ ] Graceful degradation when backend is unavailable
+### 6. Integration Guidelines
+- **PocketBase Integration**: 
+  - Respect existing data schema
+  - Use existing API endpoints without modification
+  - If new fields needed (like `pinned` status), add them safely
+  - Maintain existing authentication and permissions
+- **Tiptap Integration**:
+  - Hook into Tiptap's document change events for auto-sort triggers
+  - Ensure editor performance isn't impacted by sidebar updates
+  - Use Tiptap's official documentation for all integrations
 
-**Performance Optimization:**
-- [ ] Content diffing to avoid unnecessary saves
-- [ ] Request deduplication for identical content
-- [ ] Memory leak prevention (cleanup timers/subscriptions)
-- [ ] Efficient re-rendering with proper memoization
+### 7. Performance Considerations
+- Implement efficient sorting algorithms
+- Use React.memo and useMemo where appropriate
+- Debounce frequent updates to prevent excessive re-renders
+- Lazy load note previews if needed
+- Optimize re-renders during drag operations (if implementing drag-to-reorder)
 
-**User Experience:**
-- [ ] Clear visual indicators for all save states
-- [ ] Non-blocking UI during save operations
-- [ ] Keyboard shortcut for manual save (Ctrl+S/Cmd+S)
-- [ ] Unsaved changes warning on page exit
+## Expected Deliverables
 
-**Integration:**
-- [ ] Seamless Tiptap editor integration
-- [ ] Preservation of existing PocketBase API patterns
-- [ ] Proper TypeScript interfaces for all data structures
-- [ ] Comprehensive error boundary implementation
 
-### 7. TESTING REQUIREMENTS
+### Implementation Steps
+1. **Analysis Phase**: Examine existing codebase and PocketBase schema
+2. **Component Planning**: Design component hierarchy and data flow
+3. **Shadcn Setup**: Install and configure required UI components
+4. **Core Logic**: Implement sorting and pinning logic
+5. **UI Implementation**: Build responsive, accessible interface
+6. **Integration**: Connect with existing Tiptap and PocketBase systems
+7. **Testing**: Test all functionality thoroughly
+8. **Bug Resolution**: Fix any issues encountered
+9. **Performance Optimization**: Optimize for production use
 
-Provide implementation that handles these scenarios:
-- User types continuously for extended periods
-- Network connection drops during editing
-- Multiple browser tabs editing same document
-- Browser refresh with unsaved changes
-- Backend API returns various error responses
-- Extremely large documents (performance testing)
+## Error Handling Requirements
+- Graceful degradation if PocketBase is unavailable
+- User-friendly error messages for failed operations
+- Retry mechanisms for network failures
+- Console logging for debugging (removable in production)
 
-### 8. DELIVERABLES
+## Testing Checklist
+- [ ] Auto-sort works with new note creation
+- [ ] Auto-sort triggers on note modification
+- [ ] Pin/unpin functionality works correctly
+- [ ] Pinned notes stay at top, sorted by last modified
+- [ ] Unpinned notes sort correctly below pinned notes
+- [ ] Responsive design works on all screen sizes
+- [ ] Keyboard navigation functions properly
+- [ ] No interference with existing PocketBase operations
+- [ ] Performance remains smooth with large note collections
+- [ ] Error states display appropriate feedback
 
-Provide complete, production-ready code including:
+## Code Quality Standards
+- Use TypeScript with strict type checking
+- Follow Next.js 15.3.3 conventions and best practices
+- Implement proper error boundaries
+- Use semantic HTML and ARIA attributes
+- Follow React best practices (hooks rules, component patterns)
+- Clean, readable code with appropriate comments
+- No console.log statements in production code
 
-1. **Full component implementations** with proper TypeScript typing
-2. **Custom hooks** with comprehensive error handling
-3. **Integration code** showing how to replace existing editor
-4. **Configuration options** for customizing auto-save behavior
-5. **Migration guide** for updating existing components
-6. **Example usage** with proper Next.js App Router patterns
+## Final Validation
+Before completing the task, ensure:
+1. All features work as specified
+2. No existing functionality is broken
+3. Code follows all specified standards
+4. Performance is acceptable
+5. All bugs have been resolved
+6. Documentation is clear and complete
 
-### 9. DEBUGGING COMMITMENT
-
-If ANY bugs arise during implementation:
-- **STOP immediately** and fix the bug completely
-- **TEST the fix** thoroughly before continuing
-- **EXPLAIN the bug** and why your solution resolves it
-- **ENSURE no regressions** are introduced by the fix
-
-## SUCCESS CRITERIA
-
-The implementation is complete ONLY when:
-- ✅ All code is production-ready with zero placeholders
-- ✅ Auto-save works flawlessly in all common scenarios
-- ✅ Existing PocketBase integration remains unmodified and functional
-- ✅ All TypeScript types are properly defined
-- ✅ Error handling covers all edge cases
-- ✅ Performance is optimized for large documents
-- ✅ User experience is smooth and informative
-- ✅ Code follows Next.js 15.3.3 and Tailwind 4 best practices
-
-**Remember: This is production code that users will depend on. NO shortcuts, NO "implement later" comments, NO incomplete functionality. Everything must work perfectly from day one.**
+## Remember: 
+- **NO SHORTCUTS** - Complete the full implementation
+- **NO BACKEND INTERFERENCE** - Respect existing PocketBase setup  
+- **RESOLVE ALL BUGS** - Don't leave any issues unresolved
+- **USE SHADCN EXCLUSIVELY** - Check installation status first
+- **FOLLOW NEXT.JS 15.3.3 BEST PRACTICES** - Use latest patterns and conventions
