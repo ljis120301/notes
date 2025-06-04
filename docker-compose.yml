@@ -3,7 +3,7 @@ services:
   notes:
     cpu_shares: 90
     command: []
-    container_name: notes
+    container_name: notes-whoisjason
     depends_on:
       pocketbase:
         condition: service_started
@@ -31,19 +31,19 @@ services:
         rm -rf /app/* /app/.[^.]* 2>/dev/null || true
         echo ""
 
-        echo "[STEP 3] Cloning repository..."
+        echo "[STEP 3] Cloning notes repository..."
         cd /tmp
-        rm -rf bee-blog 2>/dev/null || true
-        git clone -b v1 https://github.com/ljis120301/bee-blog.git bee-blog
+        rm -rf notes 2>/dev/null || true
+        git clone https://github.com/ljis120301/notes.git notes
         if [ $? -ne 0 ]; then
-          echo "ERROR: Failed to clone repository"
+          echo "ERROR: Failed to clone notes repository"
           exit 1
         fi
 
         echo "Moving repository to /app..."
-        cp -r /tmp/bee-blog/. /app/
+        cp -r /tmp/notes/. /app/
         cd /app
-        echo "Repository cloned successfully"
+        echo "Notes repository cloned successfully"
         echo ""
 
         echo "[STEP 4] Verifying project structure..."
@@ -54,11 +54,10 @@ services:
           exit 1
         fi
 
-        # Verify Next.js structure
-        if [ -f next.config.mjs ]; then
-          echo "✓ next.config.mjs found"
+        if [ -f next.config.ts ]; then
+          echo "✓ next.config.ts found"
         else
-          echo "✗ next.config.mjs not found"
+          echo "✗ next.config.ts not found"
         fi
 
         if [ -d app ]; then
@@ -115,8 +114,8 @@ services:
         - arm64
       category: Productivity
       description:
-        en_us: A Next.js notes platform with PocketBase backend running in production mode. 
-          Automatically pulls the latest code from GitHub v1 branch and builds for 
+        en_us: A Next.js notes platform with PocketBase backend running in production mode.
+          Automatically pulls the latest code from the notes GitHub repository and builds for
           optimized performance.
       developer: ljis120301
       icon: https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/blog.png
@@ -128,9 +127,9 @@ services:
       tagline:
         en_us: Notes - Production Next.js Notes Platform
       tips:
-        en_us: The application will automatically pull the latest code from GitHub v1
-          branch and build for production on each container restart. Access the notes at
-          http://your-server-ip:3003. PocketBase admin interface is available at
+        en_us: The application will automatically pull the latest code from the notes
+          GitHub repository and build for production on each container restart. Access the 
+          notes at http://your-server-ip:3003. PocketBase admin interface is available at
           http://your-server-ip:6969/_/. Check container logs for build and startup
           information.
     volumes: []
@@ -141,7 +140,7 @@ services:
   pocketbase:
     cpu_shares: 90
     command: []
-    container_name: pocketbase
+    container_name: pocketbase-notes
     deploy:
       resources:
         limits:
