@@ -73,92 +73,25 @@ services:
         fi
         echo ""
 
-        echo "[STEP 5] Preparing npm environment..."
-        # Clear npm cache to avoid conflicts
-        npm cache clean --force
-        # Remove any existing node_modules
-        rm -rf node_modules package-lock.json
-        echo "NPM cache cleared and node_modules removed"
-        echo ""
-
-        echo "[STEP 6] Installing npm dependencies..."
-        # Install with specific flags for Docker environment
-        npm install --no-optional --legacy-peer-deps --fetch-timeout=600000
+        echo "[STEP 5] Installing npm dependencies..."
+        npm install
         if [ $? -ne 0 ]; then
           echo "ERROR: npm install failed"
-          echo "Attempting to install with different flags..."
-          npm install --no-optional --legacy-peer-deps --prefer-offline --no-audit --no-fund
-          if [ $? -ne 0 ]; then
-            echo "ERROR: npm install failed on second attempt"
-            exit 1
-          fi
+          exit 1
         fi
-        
-        # Verify critical Tailwind CSS v4 packages are installed
-        echo "Verifying Tailwind CSS v4 installation..."
-        if [ -d "node_modules/@tailwindcss/postcss" ]; then
-          echo "✓ @tailwindcss/postcss found"
-        else
-          echo "✗ @tailwindcss/postcss NOT found - attempting to install directly"
-          npm install @tailwindcss/postcss@^4 --no-optional --legacy-peer-deps
-        fi
-        
-        if [ -d "node_modules/tailwindcss" ]; then
-          echo "✓ tailwindcss found"
-        else
-          echo "✗ tailwindcss NOT found - attempting to install directly"
-          npm install tailwindcss@^4 --no-optional --legacy-peer-deps
-        fi
-        
         echo "Dependencies installed successfully"
         echo ""
 
-        echo "[STEP 7] Building application for production..."
+        echo "[STEP 6] Building application for production..."
         npm run build
         if [ $? -ne 0 ]; then
           echo "ERROR: Production build failed"
-          echo "Debugging information:"
-          echo "PostCSS config (ES module):"
-          cat postcss.config.mjs
-          echo ""
-          echo "Attempting with CommonJS PostCSS config..."
-          if [ -f postcss.config.js ]; then
-            echo "PostCSS config (CommonJS):"
-            cat postcss.config.js
-            echo ""
-            echo "Renaming PostCSS configs to use CommonJS version..."
-            mv postcss.config.mjs postcss.config.mjs.backup
-            echo "Retrying build with CommonJS PostCSS config..."
-            npm run build
-            if [ $? -ne 0 ]; then
-              echo "ERROR: Build failed with CommonJS config too"
-              echo "Node modules @tailwindcss/postcss:"
-              ls -la node_modules/@tailwindcss/ 2>/dev/null || echo "Directory not found"
-              echo ""
-              echo "Package.json tailwind dependencies:"
-              cat package.json | grep -A2 -B2 tailwind
-              echo ""
-              echo "NPM list of installed packages:"
-              npm list | grep tailwind
-              exit 1
-            fi
-          else
-            echo "CommonJS PostCSS config not found"
-            echo "Node modules @tailwindcss/postcss:"
-            ls -la node_modules/@tailwindcss/ 2>/dev/null || echo "Directory not found"
-            echo ""
-            echo "Package.json tailwind dependencies:"
-            cat package.json | grep -A2 -B2 tailwind
-            echo ""
-            echo "NPM list of installed packages:"
-            npm list | grep tailwind
-            exit 1
-          fi
+          exit 1
         fi
         echo "Application built successfully"
         echo ""
 
-        echo "[STEP 8] Starting production server..."
+        echo "[STEP 7] Starting production server..."
         echo "Starting Next.js in production mode on port 3003..."
         exec npm run start
     environment:
