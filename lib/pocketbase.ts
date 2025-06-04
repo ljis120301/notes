@@ -25,6 +25,7 @@ export interface Note {
   user?: string  // Optional for backward compatibility
   created?: string
   updated?: string
+  pinned?: boolean  // New field for pin functionality
 }
 
 export const notesCollection = 'notes' 
