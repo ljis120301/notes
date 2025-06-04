@@ -26,13 +26,13 @@ export const backupUtils = {
               localStorage.removeItem(key)
             }
           }
-        } catch (error) {
+        } catch {
           // If we can't parse the backup, remove it
           localStorage.removeItem(key)
         }
       })
-    } catch (error) {
-      console.warn('Failed to cleanup old backups:', error)
+    } catch {
+      // Silently ignore cleanup errors
     }
   },
 
@@ -50,7 +50,7 @@ export const backupUtils = {
       const total = 5 * 1024 * 1024 // 5MB typical localStorage limit
       const used = new Blob(Object.values(localStorage)).size
       return { used, total, percentage: (used / total) * 100 }
-    } catch (error) {
+    } catch {
       return { used: 0, total: 0, percentage: 0 }
     }
   }

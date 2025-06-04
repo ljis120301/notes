@@ -39,24 +39,6 @@ export async function uploadImage(file: File): Promise<string> {
   }
 }
 
-// Helper function to check if user field exists in notes collection
-async function checkUserFieldExists(): Promise<boolean> {
-  try {
-    // Try to get collection info to check if user field exists
-    const result = await pb.collection(notesCollection).getFullList({
-      page: 1,
-      perPage: 1,
-      filter: 'id != ""'
-    })
-    return true
-  } catch (error: any) {
-    if (error.message?.includes('user') || error.status === 400) {
-      return false
-    }
-    throw error
-  }
-}
-
 export async function createNote(title: string, content: string = ''): Promise<Note> {
   const userId = ensureAuth()
   

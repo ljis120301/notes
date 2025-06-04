@@ -250,7 +250,7 @@ export function SimpleEditor({
         maxSize: MAX_FILE_SIZE,
         limit: 3,
         upload: handleImageUpload,
-        onError: (error: any) => console.error("Upload failed:", error),
+        onError: (error: unknown) => console.error("Upload failed:", error),
       }),
       TrailingNode,
       Link.configure({ openOnClick: false }),

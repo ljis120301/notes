@@ -5,11 +5,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SimpleEditor } from './tiptap-templates/simple/simple-editor'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ArrowLeft, Save, Trash2, Check, Clock, LogOut } from 'lucide-react'
+import { Save, Trash2, Check, Clock, LogOut } from 'lucide-react'
 import { Note } from '@/lib/pocketbase'
 import { getNotes, createNote, updateNote, deleteNote, getNote } from '@/lib/notes-api'
 import { formatDistanceToNow } from 'date-fns'
-import Link from 'next/link'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth-context'
 
@@ -48,8 +47,9 @@ export function SimpleNoteEditor() {
       setSelectedNoteId(newNote.id!)
       toast.success('New note created')
     },
-    onError: (error: any) => {
-      toast.error('Failed to create note: ' + error.message)
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create note'
+      toast.error('Failed to create note: ' + errorMessage)
     }
   })
 
@@ -71,8 +71,9 @@ export function SimpleNoteEditor() {
       setHasUnsavedChanges(false)
       toast.success('Note saved successfully')
     },
-    onError: (error: any) => {
-      toast.error('Failed to save note: ' + error.message)
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save note'
+      toast.error('Failed to save note: ' + errorMessage)
     }
   })
 
@@ -90,8 +91,9 @@ export function SimpleNoteEditor() {
       setSelectedNoteId(null)
       toast.success('Note deleted')
     },
-    onError: (error: any) => {
-      toast.error('Failed to delete note: ' + error.message)
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete note'
+      toast.error('Failed to delete note: ' + errorMessage)
     }
   })
 

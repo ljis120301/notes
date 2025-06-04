@@ -184,18 +184,19 @@ export const handleImageUpload = async (
     console.log('✅ Image uploaded to PocketBase:', fileUrl)
     return fileUrl
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Image upload failed:', error)
     
     // Handle specific PocketBase errors
-    if (error.status === 400) {
+    const err = error as { status?: number; message?: string }
+    if (err.status === 400) {
       throw new Error("Invalid file format or collection configuration")
-    } else if (error.status === 401) {
+    } else if (err.status === 401) {
       throw new Error("Authentication required")
-    } else if (error.status === 403) {
+    } else if (err.status === 403) {
       throw new Error("Permission denied")
     } else {
-      throw new Error(`Upload failed: ${error.message || 'Unknown error'}`)
+      throw new Error(`Upload failed: ${err.message || 'Unknown error'}`)
     }
   }
 }

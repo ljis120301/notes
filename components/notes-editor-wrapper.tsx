@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect, useCallback } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import { SimpleEditor } from './tiptap-templates/simple/simple-editor'
 import { Button } from '@/components/ui/button'
 import { Trash2 } from 'lucide-react'
@@ -24,7 +23,6 @@ export default function NotesEditorWrapper({
   onDelete, 
   onTitleChange 
 }: NotesEditorWrapperProps) {
-  const queryClient = useQueryClient()
   const [noteContent, setNoteContent] = useState('')
   const [noteTitle, setNoteTitle] = useState('')
 
@@ -68,8 +66,9 @@ export default function NotesEditorWrapper({
         await deleteNote(note.id)
         onDelete(note.id)
         toast.success('Note deleted')
-      } catch (error: any) {
-        toast.error('Failed to delete note: ' + error.message)
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+        toast.error('Failed to delete note: ' + errorMessage)
         // Resume autosave if deletion failed
         autosave.setPaused(false)
       }
@@ -85,7 +84,7 @@ export default function NotesEditorWrapper({
       setNoteContent(newContent)
       setNoteTitle(newTitle)
     }
-  }, [note.id, note.content, note.title])
+  }, [note])
 
   const handleContentChange = useCallback((content: string) => {
     setNoteContent(content)

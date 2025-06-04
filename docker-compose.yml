@@ -1,0 +1,227 @@
+name: notes.whoisjason.me
+services:
+  notes:
+    cpu_shares: 90
+    command: []
+    container_name: notes
+    depends_on:
+      pocketbase:
+        condition: service_started
+        required: true
+    deploy:
+      resources:
+        limits:
+          memory: 22957M
+    entrypoint:
+      - sh
+      - -c
+      - |
+        echo "=== Notes Startup Log ==="
+        echo "Node version: $(node --version)"
+        echo "NPM version: $(npm --version)"
+        echo "Operating system: $(uname -a)"
+        echo ""
+
+        echo "[STEP 1] Installing dependencies..."
+        apk add --no-cache git openssh-client
+        echo "Git installed: $(git --version)"
+        echo ""
+
+        echo "[STEP 2] Setting up workspace..."
+        rm -rf /app/* /app/.[^.]* 2>/dev/null || true
+        echo ""
+
+        echo "[STEP 3] Cloning repository..."
+        cd /tmp
+        rm -rf bee-blog 2>/dev/null || true
+        git clone -b v1 https://github.com/ljis120301/bee-blog.git bee-blog
+        if [ $? -ne 0 ]; then
+          echo "ERROR: Failed to clone repository"
+          exit 1
+        fi
+
+        echo "Moving repository to /app..."
+        cp -r /tmp/bee-blog/. /app/
+        cd /app
+        echo "Repository cloned successfully"
+        echo ""
+
+        echo "[STEP 4] Verifying project structure..."
+        if [ -f package.json ]; then
+          echo "✓ package.json found"
+        else
+          echo "ERROR: package.json not found!"
+          exit 1
+        fi
+
+        # Verify Next.js structure
+        if [ -f next.config.mjs ]; then
+          echo "✓ next.config.mjs found"
+        else
+          echo "✗ next.config.mjs not found"
+        fi
+
+        if [ -d app ]; then
+          echo "✓ app directory found"
+        else
+          echo "✗ app directory not found"
+        fi
+
+        if [ -d components ]; then
+          echo "✓ components directory found"
+        else
+          echo "✗ components directory not found"
+        fi
+        echo ""
+
+        echo "[STEP 5] Installing npm dependencies..."
+        npm install
+        if [ $? -ne 0 ]; then
+          echo "ERROR: npm install failed"
+          exit 1
+        fi
+        echo "Dependencies installed successfully"
+        echo ""
+
+        echo "[STEP 6] Starting development server..."
+        echo "Starting Next.js in development mode on port 3003..."
+        exec npm run dev -- --port 3003
+    environment:
+      - GIT_TERMINAL_PROMPT=0
+      - NODE_ENV=development
+    hostname: notes
+    image: node:20-alpine
+    labels:
+      icon: https://icon.casaos.io/main/all/notes.png
+    ports:
+      - target: 3003
+        published: "3003"
+        protocol: tcp
+    restart: unless-stopped
+    working_dir: /app
+    x-casaos:
+      architectures:
+        - amd64
+        - arm64
+      category: Development Tools
+      description:
+        en_us: A Next.js notes platform with PocketBase backend. Automatically pulls the
+          latest code from GitHub v1 branch and runs in development mode with
+          hot reload.
+      developer: ljis120301
+      icon: https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/blog.png
+      index: /
+      main: notes
+      port_map: "3003"
+      scheme: http
+      store_app_id: notes
+      tagline:
+        en_us: Notes - Next.js Notes Platform
+      tips:
+        en_us: The application will automatically pull the latest code from GitHub v1
+          branch on each container restart. Access the notes at
+          http://your-server-ip:3003. PocketBase admin interface is available at
+          http://your-server-ip:6969/_/. Check container logs for detailed
+          startup information.
+    volumes: []
+    devices: []
+    cap_add: []
+    network_mode: bridge
+    privileged: false
+  pocketbase:
+    cpu_shares: 90
+    command: []
+    container_name: pocketbase
+    deploy:
+      resources:
+        limits:
+          memory: 22957M
+    entrypoint:
+      - sh
+      - -c
+      - >
+        echo "=== PocketBase Startup Log ==="
+
+        echo "Operating system: $(uname -a)"
+
+        echo ""
+
+
+        echo "[STEP 1] Verifying PocketBase binary..."
+
+        if [ -f ./pocketbase/pocketbase ]; then
+          echo "✓ PocketBase binary found at /app/pocketbase/pocketbase"
+          echo "PocketBase version: $(./pocketbase/pocketbase --version 2>/dev/null || echo 'Unable to determine version')"
+        else
+          echo "ERROR: PocketBase binary not found at /app/pocketbase/pocketbase"
+          echo "Current directory contents:"
+          ls -la /app/
+          if [ -d /app/pocketbase ]; then
+            echo "Contents of /app/pocketbase:"
+            ls -la /app/pocketbase/
+          fi
+          echo "Please ensure the PocketBase binary is located at /home/jason/pocketbase/pocketbase/pocketbase"
+          exit 1
+        fi
+
+        echo ""
+
+
+        echo "[STEP 2] Starting PocketBase server..."
+
+        echo "Starting PocketBase on 0.0.0.0:6969..."
+
+        exec ./pocketbase/pocketbase serve --http=0.0.0.0:6969
+    hostname: pocketbase
+    image: alpine:latest
+    labels:
+      icon: https://icon.casaos.io/main/all/notes.png
+    ports:
+      - target: 6969
+        published: "6969"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /home/jason/pocketbase
+        target: /app
+    working_dir: /app
+    x-casaos:
+      architectures:
+        - amd64
+        - arm64
+      category: Database
+      description:
+        en_us: PocketBase backend database for the Notes application. Provides API
+          endpoints and admin interface.
+      developer: ljis120301
+      icon: https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/database.png
+      index: /_/
+      main: pocketbase
+      port_map: "6969"
+      scheme: http
+      store_app_id: pocketbase
+      tagline:
+        en_us: PocketBase - Backend Database
+      tips:
+        en_us: PocketBase admin interface is available at http://your-server-ip:6969/_/.
+          Database files are persisted to /home/jason/pocketbase on the host
+          system.
+    devices: []
+    cap_add: []
+    environment: []
+    network_mode: bridge
+    privileged: false
+x-casaos:
+  author: self
+  category: self
+  hostname: ""
+  icon: https://www.vecteezy.com/vector-art/29722382-notes-icon-in-trendy-flat-style-isolated-on-white-background-notes-silhouette-symbol-for-your-website-design-logo-app-ui-vector-illustration-eps10
+  index: /
+  is_uncontrolled: false
+  port_map: ""
+  scheme: http
+  store_app_id: notes.whoisjason.me
+  title:
+    custom: ""
+    en_us: notes

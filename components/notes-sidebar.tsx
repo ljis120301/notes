@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback, useRef } from 'react'
+import { useState, useMemo, forwardRef, useImperativeHandle, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Search, FileText, Plus, Pin, PinOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -84,7 +84,6 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
   ({ selectedNote, onSelectNote, onCreateNote, isAuthenticated = false }, ref) => {
     const queryClient = useQueryClient()
     const [searchQuery, setSearchQuery] = useState('')
-    const searchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
     // Use React Query for notes list
     const { 
@@ -205,15 +204,6 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
       return sortNotes(notesToDisplay)
     }, [searchQuery, searchResults, notes])
 
-    // Cleanup timeouts
-    useEffect(() => {
-      return () => {
-        if (searchTimeoutRef.current) {
-          clearTimeout(searchTimeoutRef.current)
-        }
-      }
-    }, [])
-
     // Don't render anything if not authenticated
     if (!isAuthenticated) {
       return (
@@ -323,7 +313,7 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
                                 variant="ghost"
                                 size="sm"
                                 className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity shrink-0"
-                                onClick={(e) => handleTogglePin(note, e)}
+                                onClick={(event) => handleTogglePin(note, event)}
                                 disabled={pinNoteMutation.isPending || unpinNoteMutation.isPending}
                               >
                                 {note.pinned ? (

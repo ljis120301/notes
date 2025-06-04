@@ -10,7 +10,7 @@ import { ModeToggle } from '@/components/mode-toggle'
 
 export default function AuthPage() {
   const router = useRouter()
-  const { login, register, loading, isAuthenticated, user } = useAuth()
+  const { login, register, loading, isAuthenticated } = useAuth()
   const [isLogin, setIsLogin] = useState(false)
   const [localLoading, setLocalLoading] = useState(false)
   const [error, setError] = useState('')
@@ -63,7 +63,7 @@ export default function AuthPage() {
     try {
       await login('test@example.com', 'testpassword123')
       console.log('✅ AuthPage: Test login successful')
-    } catch (err: any) {
+    } catch {
       console.log('⚠️ AuthPage: Test login failed, trying to create test account...')
       try {
         await pb.collection('users').create({
@@ -75,9 +75,10 @@ export default function AuthPage() {
         console.log('✅ AuthPage: Test account created, now logging in...')
         await login('test@example.com', 'testpassword123')
         console.log('✅ AuthPage: Test account created and logged in')
-      } catch (createError: any) {
+      } catch (createError: unknown) {
         console.error('❌ AuthPage: Failed to create test account:', createError)
-        setError('Failed to create test account: ' + createError.message)
+        const errorMessage = createError instanceof Error ? createError.message : 'Unknown error occurred'
+        setError('Failed to create test account: ' + errorMessage)
       }
     } finally {
       setLocalLoading(false)
@@ -97,9 +98,10 @@ export default function AuthPage() {
         await register(email, password, name)
         console.log('✅ AuthPage: Registration successful')
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`❌ AuthPage: ${isLogin ? 'Login' : 'Registration'} failed:`, err)
-      setError(err.message || `Failed to ${isLogin ? 'login' : 'create account'}`)
+      const errorMessage = err instanceof Error ? err.message : `Failed to ${isLogin ? 'login' : 'create account'}`
+      setError(errorMessage)
     } finally {
       setLocalLoading(false)
     }

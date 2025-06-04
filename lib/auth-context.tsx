@@ -65,8 +65,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           setUser(userData)
           console.log('✅ User set from valid token:', userData.email)
-        } catch (refreshError: any) {
-          console.log('⚠️ Auth token refresh failed, clearing auth:', refreshError.message)
+        } catch (refreshError: unknown) {
+          const errorMessage = refreshError instanceof Error ? refreshError.message : 'Unknown error'
+          console.log('⚠️ Auth token refresh failed, clearing auth:', errorMessage)
           pb.authStore.clear()
           setUser(null)
         }
@@ -74,8 +75,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('❌ No valid auth token found')
         setUser(null)
       }
-    } catch (error: any) {
-      console.error('❌ Error initializing auth:', error.message)
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      console.error('❌ Error initializing auth:', errorMessage)
       pb.authStore.clear()
       setUser(null)
     } finally {
@@ -101,8 +103,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       setUser(userData)
       console.log('✅ Login process complete for:', userData.email)
-    } catch (error: any) {
-      console.error('❌ Login failed:', error.message)
+    } catch (error: unknown) {
+      console.error('❌ Login failed:', error)
       throw error
     } finally {
       setLoading(false)
@@ -128,8 +130,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await login(email, password)
       
       console.log('✅ Registration and auto-login successful')
-    } catch (error: any) {
-      console.error('❌ Registration failed:', error.message)
+    } catch (error: unknown) {
+      console.error('❌ Registration failed:', error)
       throw error
     } finally {
       setLoading(false)
@@ -160,8 +162,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })
         console.log('✅ Auth refresh successful')
       }
-    } catch (error: any) {
-      console.error('❌ Auth refresh failed:', error.message)
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      console.error('❌ Auth refresh failed:', errorMessage)
       logout()
     }
   }
