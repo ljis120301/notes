@@ -1,26 +1,533 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@plugin "@tailwindcss/typography";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+
+@custom-variant dark (&:is(.dark *));
+@custom-variant frappe (&:is(.frappe *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+  --tt-color-highlight-yellow: #6b6524;
+  --tt-color-highlight-green: #509568;
+  --tt-color-highlight-blue: #6e92aa;
+  --tt-color-highlight-purple: #583e74;
+  --tt-color-highlight-red: #743e42;
+  --tt-color-highlight-gray: rgb(47, 47, 47);
+  --tt-color-highlight-brown: rgb(74, 50, 40);
+  --tt-color-highlight-orange: rgb(92, 59, 35);
+  --tt-color-highlight-pink: rgb(78, 44, 60);
+  --tt-color-highlight-yellow-contrast: #58531e;
+  --tt-color-highlight-green-contrast: #47855d;
+  --tt-color-highlight-blue-contrast: #5e86a1;
+  --tt-color-highlight-purple-contrast: #4c3564;
+  --tt-color-highlight-red-contrast: #643539;
+  --tt-color-highlight-gray-contrast: rgba(255, 255, 255, 0.094);
+  --tt-color-highlight-brown-contrast: rgba(184, 101, 69, 0.25);
+  --tt-color-highlight-orange-contrast: rgba(233, 126, 37, 0.2);
+  --tt-color-highlight-pink-contrast: rgba(220, 76, 145, 0.22);
+}
+
+.frappe {
+  /* Catppuccin Frappé theme colors */
+  --background: #303446; /* base */
+  --foreground: #c6d0f5; /* text */
+  --card: #414559; /* surface0 */
+  --card-foreground: #c6d0f5; /* text */
+  --popover: #414559; /* surface0 */
+  --popover-foreground: #c6d0f5; /* text */
+  --primary: #8caaee; /* blue */
+  --primary-foreground: #303446; /* base */
+  --secondary: #51576d; /* surface1 */
+  --secondary-foreground: #c6d0f5; /* text */
+  --muted: #51576d; /* surface1 */
+  --muted-foreground: #a5adce; /* subtext0 */
+  --accent: #626880; /* surface2 */
+  --accent-foreground: #c6d0f5; /* text */
+  --destructive: #e78284; /* red */
+  --border: #626880; /* surface2 */
+  --input: #626880; /* surface2 */
+  --ring: #8caaee; /* blue */
+  --chart-1: #ef9f76; /* peach */
+  --chart-2: #a6d189; /* green */
+  --chart-3: #8caaee; /* blue */
+  --chart-4: #ca9ee6; /* mauve */
+  --chart-5: #f4b8e4; /* pink */
+  --sidebar: #292c3c; /* mantle */
+  --sidebar-foreground: #c6d0f5; /* text */
+  --sidebar-primary: #8caaee; /* blue */
+  --sidebar-primary-foreground: #303446; /* base */
+  --sidebar-accent: #414559; /* surface0 */
+  --sidebar-accent-foreground: #c6d0f5; /* text */
+  --sidebar-border: #626880; /* surface2 */
+  --sidebar-ring: #8caaee; /* blue */
+  
+  /* TipTap SimpleEditor Variables - Frappe Mode */
+  --tt-bg-color: #303446; /* base */
+  --tt-scrollbar-color: #626880; /* surface2 */
+  --tt-gray-frappe-900: #c6d0f5; /* text */
+  --tt-gray-frappe-800: #a5adce; /* subtext0 */
+  --tt-gray-frappe-700: #626880; /* surface2 */
+  --tt-gray-frappe-600: #51576d; /* surface1 */
+  --tt-gray-frappe-500: #414559; /* surface0 */
+  --tt-theme-text: var(--tt-gray-frappe-900);
+  /* Catppuccin Frappé highlight colors */
+  --tt-color-highlight-yellow: #e5c890; /* Catppuccin yellow */
+  --tt-color-highlight-green: #a6d189; /* Catppuccin green */
+  --tt-color-highlight-blue: #8caaee; /* Catppuccin blue */
+  --tt-color-highlight-purple: #ca9ee6; /* Catppuccin mauve */
+  --tt-color-highlight-red: #e78284; /* Catppuccin red */
+  --tt-color-highlight-gray: #626880; /* Catppuccin surface2 */
+  --tt-color-highlight-brown: #eebebe; /* Catppuccin rosewater */
+  --tt-color-highlight-orange: #ef9f76; /* Catppuccin peach */
+  --tt-color-highlight-pink: #f4b8e4; /* Catppuccin pink */
+  --tt-color-highlight-yellow-contrast: #e5c890;
+  --tt-color-highlight-green-contrast: #a6d189;
+  --tt-color-highlight-blue-contrast: #8caaee;
+  --tt-color-highlight-purple-contrast: #ca9ee6;
+  --tt-color-highlight-red-contrast: #e78284;
+  --tt-color-highlight-gray-contrast: rgba(98, 104, 128, 0.3);
+  --tt-color-highlight-brown-contrast: rgba(238, 190, 190, 0.3);
+  --tt-color-highlight-orange-contrast: rgba(239, 159, 118, 0.3);
+  --tt-color-highlight-pink-contrast: rgba(244, 184, 228, 0.3);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    box-sizing: border-box;
   }
-}
+  body {
+    @apply bg-background text-foreground;
+  }
+  
+  /* Ensure TipTap CSS variables are globally accessible */
+  *, *::before, *::after {
+    /* TipTap Toolbar Height */
+    --tt-toolbar-height: 44px;
+  }
+  
+  /* Light mode TipTap variables */
+  :root,
+  .light,
+  [data-theme="light"] {
+    --tt-theme-text: oklch(0.145 0 0);
+    --tt-bg-color: oklch(1 0 0);
+    --tt-scrollbar-color: oklch(0.922 0 0);
+    --tt-gray-light-900: oklch(0.145 0 0);
+    --tt-gray-light-800: oklch(0.556 0 0);
+    --tt-gray-light-700: oklch(0.922 0 0);
+    --tt-gray-light-600: oklch(0.97 0 0);
+    --tt-gray-light-500: oklch(0.985 0 0);
+    --tt-gray-light-a-100: oklch(0.97 0 0 / 0.1);
+    --tt-gray-light-a-200: oklch(0.922 0 0 / 0.2);
+    --tt-gray-light-a-300: oklch(0.886 0 0 / 0.3);
+    --tt-gray-light-a-400: oklch(0.708 0 0 / 0.4);
+    --tt-gray-light-a-500: oklch(0.556 0 0 / 0.5);
+    --tt-gray-light-a-600: oklch(0.449 0 0 / 0.6);
+    --tt-gray-light-a-700: oklch(0.351 0 0 / 0.7);
+    --tt-gray-light-a-800: oklch(0.267 0 0 / 0.8);
+    --tt-gray-light-a-900: oklch(0.145 0 0 / 0.9);
+  }
+  
+  /* Dark mode TipTap variables */
+  .dark,
+  [data-theme="dark"] {
+    --tt-theme-text: oklch(0.985 0 0);
+    --tt-bg-color: oklch(0.145 0 0);
+    --tt-scrollbar-color: oklch(1 0 0 / 10%);
+    --tt-gray-dark-900: oklch(0.985 0 0);
+    --tt-gray-dark-800: oklch(0.708 0 0);
+    --tt-gray-dark-700: oklch(0.269 0 0);
+    --tt-gray-dark-600: oklch(0.145 0 0);
+    --tt-gray-dark-500: oklch(0.205 0 0);
+    --tt-gray-dark-a-100: oklch(0.985 0 0 / 0.1);
+    --tt-gray-dark-a-200: oklch(0.708 0 0 / 0.2);
+    --tt-gray-dark-a-300: oklch(0.556 0 0 / 0.3);
+    --tt-gray-dark-a-400: oklch(0.449 0 0 / 0.4);
+    --tt-gray-dark-a-500: oklch(0.351 0 0 / 0.5);
+    --tt-gray-dark-a-600: oklch(0.267 0 0 / 0.6);
+    --tt-gray-dark-a-700: oklch(0.205 0 0 / 0.7);
+    --tt-gray-dark-a-800: oklch(0.145 0 0 / 0.8);
+    --tt-gray-dark-a-900: oklch(0.089 0 0 / 0.9);
+  }
+  
+  /* Frappe mode TipTap variables */
+  .frappe,
+  [data-theme="frappe"] {
+    --tt-theme-text: #c6d0f5;
+    --tt-bg-color: #303446;
+    --tt-scrollbar-color: #626880;
+    --tt-gray-frappe-900: #c6d0f5;
+    --tt-gray-frappe-800: #a5adce;
+    --tt-gray-frappe-700: #626880;
+    --tt-gray-frappe-600: #51576d;
+    --tt-gray-frappe-500: #414559;
+    --tt-gray-frappe-a-100: #c6d0f5 / 0.1;
+    --tt-gray-frappe-a-200: #a5adce / 0.2;
+    --tt-gray-frappe-a-300: #949cbb / 0.3;
+    --tt-gray-frappe-a-400: #838ba7 / 0.4;
+    --tt-gray-frappe-a-500: #737994 / 0.5;
+    --tt-gray-frappe-a-600: #626880 / 0.6;
+    --tt-gray-frappe-a-700: #51576d / 0.7;
+    --tt-gray-frappe-a-800: #414559 / 0.8;
+    --tt-gray-frappe-a-900: #303446 / 0.9;
+  }
+  
+  /* TipTap SimpleEditor Styles - Inlined and scoped */
+  .simple-editor-wrapper {
+    font-family: "Inter", sans-serif;
+    font-optical-sizing: auto;
+    font-weight: 400;
+    font-style: normal;
+  }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+  .simple-editor-wrapper .tiptap.ProseMirror {
+    font-family: "DM Sans", sans-serif;
+    color: var(--tt-theme-text);
+  }
+
+  .simple-editor-wrapper .content-wrapper {
+    height: calc(100% - var(--tt-toolbar-height));
+    overflow-y: auto;
+    background-color: var(--tt-bg-color);
+  }
+
+  .simple-editor-wrapper .content-wrapper::-webkit-scrollbar {
+    display: block;
+    width: 0.5rem;
+  }
+
+  .simple-editor-wrapper .content-wrapper::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .simple-editor-wrapper .content-wrapper::-webkit-scrollbar-thumb {
+    background-color: var(--tt-scrollbar-color);
+    border-radius: 4px;
+  }
+
+  /* Firefox scrollbar */
+  .simple-editor-wrapper .content-wrapper {
+    scrollbar-width: thin;
+    scrollbar-color: var(--tt-scrollbar-color) transparent;
+  }
+
+  .simple-editor-wrapper .simple-editor-content {
+    max-width: 640px;
+    width: 100%;
+    margin: 0 auto;
+    background-color: var(--tt-bg-color);
+  }
+
+  .simple-editor-wrapper .simple-editor-content .tiptap.ProseMirror {
+    padding: 3rem 3rem;
+    background-color: var(--tt-bg-color);
+  }
+
+  @media screen and (max-width: 480px) {
+    .simple-editor-wrapper .simple-editor-content .tiptap.ProseMirror {
+      padding: 1rem 1.5rem;
+    }
+  }
+  
+  /* Performance optimizations */
+  .markdown-editor textarea {
+    will-change: contents;
+    contain: layout style paint;
+    transform: translateZ(0); /* Force hardware acceleration */
+    /* Additional performance optimizations for smooth typing */
+    backface-visibility: hidden;
+    perspective: 1000px;
+    /* Optimize text rendering for performance */
+    text-rendering: optimizeSpeed;
+    /* Disable spell checking to prevent lag (major cause of typing lag) */
+    spellcheck: false;
+    /* Reduce browser overhead */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Optimize for fast input */
+    -webkit-optimize-contrast: auto;
+    /* Prevent unnecessary reflows */
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    /* Optimize for large content */
+    overflow: auto;
+    scroll-behavior: auto; /* Disable smooth scrolling for performance */
+  }
+  
+  /* Global performance optimizations to prevent typing lag */
+  * {
+    /* Disable spell checking globally to prevent lag */
+    -webkit-user-select: auto;
+    -moz-user-select: auto;
+    user-select: auto;
+  }
+  
+  /* Optimize all text inputs for performance */
+  input[type="text"], input[type="email"], input[type="password"], textarea {
+    /* Disable spell checking - major cause of typing lag */
+    spellcheck: false;
+    /* Optimize rendering */
+    text-rendering: optimizeSpeed;
+    -webkit-font-smoothing: antialiased;
+    /* Hardware acceleration */
+    transform: translateZ(0);
+    will-change: contents;
+    /* Reduce browser overhead */
+    contain: layout style;
+  }
+  
+  /* AGGRESSIVE CURSOR FIX - Prevent white cursor completely */
+  textarea, input[type="text"], input[type="email"], input[type="password"] {
+    caret-color: #000000 !important; /* Force black cursor everywhere by default */
+    -webkit-text-fill-color: inherit !important;
+    -webkit-appearance: none !important;
+    
+    /* Disable any transitions on cursor color */
+    transition: none !important;
+    -webkit-transition: none !important;
+    -moz-transition: none !important;
+    -o-transition: none !important;
+  }
+  
+  /* More specific fix for markdown editor */
+  .markdown-editor textarea {
+    caret-color: #000000 !important; /* Force consistently black cursor in light mode */
+    -webkit-text-fill-color: inherit !important;
+    color: inherit !important;
+    
+    /* Additional webkit fixes to prevent white cursor */
+    -webkit-text-stroke: unset !important;
+    -webkit-text-decoration-color: inherit !important;
+    text-decoration-color: inherit !important;
+  }
+  
+  /* Dark mode cursor - keep white */
+  .dark textarea, .dark input[type="text"], .dark input[type="email"], .dark input[type="password"] {
+    caret-color: #ffffff !important; /* Keep white cursor in dark mode */
+  }
+  
+  .dark .markdown-editor textarea {
+    caret-color: #ffffff !important; /* Keep white cursor in dark mode */
+  }
+  
+  /* Frappe mode cursor - use theme text color */
+  .frappe textarea, .frappe input[type="text"], .frappe input[type="email"], .frappe input[type="password"] {
+    caret-color: #c6d0f5 !important; /* Use text color for frappe mode */
+  }
+  
+  .frappe .markdown-editor textarea {
+    caret-color: #c6d0f5 !important; /* Use text color for frappe mode */
+  }
+  
+  /* Fix cursor issues */
+  button, [role="button"] {
+    cursor: pointer;
+  }
+  
+  /* Prevent white cursor on skeletons */
+  .animate-pulse {
+    cursor: default;
+    will-change: opacity;
+  }
+  
+  /* Ensure proper cursor for text elements */
+  h1, h2, h3, h4, h5, h6, p, span, div {
+    cursor: default;
+  }
+  
+  /* Ensure proper cursor for interactive elements */
+  .cursor-pointer {
+    cursor: pointer !important;
+  }
+  
+  /* Fix text selection cursor */
+  input, textarea {
+    cursor: text;
+    
+    /* Additional cursor fixes for webkit browsers */
+    -webkit-text-fill-color: inherit;
+    -webkit-opacity: 1;
+    
+    /* Ensure cursor color is properly inherited */
+    caret-color: auto;
+  }
+  
+  /* Specific fixes for text areas that might have white cursor issues */
+  textarea {
+    /* Override any potential white cursor from system/browser */
+    caret-color: currentColor !important;
+    
+    /* Webkit-specific fixes for cursor rendering */
+    -webkit-text-stroke: initial;
+    -webkit-text-fill-color: inherit;
+    
+    /* Ensure no transparency issues */
+    opacity: 1 !important;
+    
+    /* Force cursor to be visible */
+    outline: none;
+    border: none;
+  }
+  
+  /* Fix cursor for clickable elements */
+  a, [role="button"], .cursor-pointer {
+    cursor: pointer;
+  }
+  
+  /* Prevent unnecessary repaints */
+  .sticky {
+    contain: layout style;
+  }
+  
+  /* TipTap Essential Styles - Prevent Tailwind from purging */
+  .tiptap-button {
+    all: unset;
+    box-sizing: border-box;
+  }
+  
+  .tiptap-button-icon {
+    display: inline-block;
+    vertical-align: middle;
+  }
+  
+  .ProseMirror {
+    outline: none;
+  }
+  
+  .ProseMirror img {
+    max-width: 100%;
+    height: auto;
+  }
+  
+  .ProseMirror pre {
+    white-space: pre-wrap;
+  }
+  
+  .ProseMirror code {
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 3px;
+    padding: 2px 4px;
+  }
+  
+  /* Force TipTap content to be visible */
+  .simple-editor-content .ProseMirror {
+    min-height: 200px;
+    padding: 1rem;
+  }
+  
+  /* Ensure images render in TipTap */
+  .ProseMirror .image-upload-node,
+  .ProseMirror img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 1rem 0;
+  }
+} 
