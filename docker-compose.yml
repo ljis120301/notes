@@ -16,7 +16,7 @@ services:
       - sh
       - -c
       - |
-        echo "=== Notes Startup Log ==="
+        echo "=== Notes Production Startup Log ==="
         echo "Node version: $(node --version)"
         echo "NPM version: $(npm --version)"
         echo "Operating system: $(uname -a)"
@@ -83,16 +83,26 @@ services:
         echo "Dependencies installed successfully"
         echo ""
 
-        echo "[STEP 6] Starting development server..."
-        echo "Starting Next.js in development mode on port 3003..."
-        exec npm run dev -- --port 3003
+        echo "[STEP 6] Building application for production..."
+        npm run build
+        if [ $? -ne 0 ]; then
+          echo "ERROR: Production build failed"
+          exit 1
+        fi
+        echo "Application built successfully"
+        echo ""
+
+        echo "[STEP 7] Starting production server..."
+        echo "Starting Next.js in production mode on port 3003..."
+        exec npm run start
     environment:
       - GIT_TERMINAL_PROMPT=0
-      - NODE_ENV=development
+      - NODE_ENV=production
+      - PORT=3003
     hostname: notes
     image: node:20-alpine
     labels:
-      icon: https://icon.casaos.io/main/all/notes.png
+      icon: https://www.vecteezy.com/vector-art/29722382-notes-icon-in-trendy-flat-style-isolated-on-white-background-notes-silhouette-symbol-for-your-website-design-logo-app-ui-vector-illustration-eps10
     ports:
       - target: 3003
         published: "3003"
@@ -103,11 +113,11 @@ services:
       architectures:
         - amd64
         - arm64
-      category: Development Tools
+      category: Productivity
       description:
-        en_us: A Next.js notes platform with PocketBase backend. Automatically pulls the
-          latest code from GitHub v1 branch and runs in development mode with
-          hot reload.
+        en_us: A Next.js notes platform with PocketBase backend running in production mode. 
+          Automatically pulls the latest code from GitHub v1 branch and builds for 
+          optimized performance.
       developer: ljis120301
       icon: https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/blog.png
       index: /
@@ -116,13 +126,13 @@ services:
       scheme: http
       store_app_id: notes
       tagline:
-        en_us: Notes - Next.js Notes Platform
+        en_us: Notes - Production Next.js Notes Platform
       tips:
         en_us: The application will automatically pull the latest code from GitHub v1
-          branch on each container restart. Access the notes at
+          branch and build for production on each container restart. Access the notes at
           http://your-server-ip:3003. PocketBase admin interface is available at
-          http://your-server-ip:6969/_/. Check container logs for detailed
-          startup information.
+          http://your-server-ip:6969/_/. Check container logs for build and startup
+          information.
     volumes: []
     devices: []
     cap_add: []
@@ -175,7 +185,7 @@ services:
     hostname: pocketbase
     image: alpine:latest
     labels:
-      icon: https://icon.casaos.io/main/all/notes.png
+      icon: https://www.vecteezy.com/vector-art/29722382-notes-icon-in-trendy-flat-style-isolated-on-white-background-notes-silhouette-symbol-for-your-website-design-logo-app-ui-vector-illustration-eps10
     ports:
       - target: 6969
         published: "6969"
