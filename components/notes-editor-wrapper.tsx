@@ -1,13 +1,15 @@
 "use client"
 
 import { useState, useEffect, useCallback } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { SimpleEditor } from './tiptap-templates/simple/simple-editor'
 import { Button } from '@/components/ui/button'
-import { Save, Trash2, Check, Clock } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { Note } from '@/lib/pocketbase'
-import { updateNote, deleteNote } from '@/lib/notes-api'
+import { deleteNote } from '@/lib/notes-api'
 import { toast } from 'sonner'
+import { useAutosave } from '@/hooks/use-autosave'
+import { AutosaveStatusIndicator } from '@/components/autosave-status'
 
 interface NotesEditorWrapperProps {
   note: Note
@@ -25,47 +27,54 @@ export default function NotesEditorWrapper({
   const queryClient = useQueryClient()
   const [noteContent, setNoteContent] = useState('')
   const [noteTitle, setNoteTitle] = useState('')
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
-  // Manual save mutation
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (!note.id) throw new Error('No note selected')
-      const result = await updateNote(note.id, { 
-        title: noteTitle.trim() || 'Untitled', 
-        content: noteContent 
-      })
-      return result
-    },
-    onSuccess: (updatedNote) => {
-      queryClient.setQueryData(['note', updatedNote.id], updatedNote)
-      queryClient.setQueryData(['notes'], (oldNotes: Note[] = []) =>
-        oldNotes.map(n => n.id === updatedNote.id ? updatedNote : n)
-      )
+  // Initialize autosave with comprehensive options
+  const autosave = useAutosave(note.id || null, noteTitle, noteContent, {
+    delay: 2000, // 2 second debounce
+    maxRetries: 3,
+    enableOfflineSupport: true,
+    // Custom comparison to ignore whitespace-only changes
+    isChanged: (current, previous) => current.trim() !== previous.trim(),
+    onSaveSuccess: (updatedNote) => {
       onSave(updatedNote)
-      setHasUnsavedChanges(false)
-      toast.success('Note saved successfully')
+      toast.success('Note saved', { duration: 1000 })
     },
-    onError: (error: any) => {
-      toast.error('Failed to save note: ' + error.message)
+    onSaveError: (error) => {
+      if (error.message?.includes('connection') || error.message?.includes('network')) {
+        toast.error('Connection lost - changes saved locally', { duration: 3000 })
+      } else if (error.message?.includes('conflict')) {
+        toast.error('Conflict detected - please save manually', { duration: 5000 })
+      } else {
+        toast.error('Failed to save note: ' + error.message, { duration: 3000 })
+      }
+    },
+    onStatusChange: (status) => {
+      // Optional: Log status changes for debugging
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Autosave status changed:', status)
+      }
     }
   })
 
-  // Delete note mutation  
-  const deleteNoteMutation = useMutation({
-    mutationFn: async () => {
-      if (!note.id) throw new Error('No note ID')
-      await deleteNote(note.id)
-      return note.id
-    },
-    onSuccess: (noteId) => {
-      onDelete(noteId)
-      toast.success('Note deleted')
-    },
-    onError: (error: any) => {
-      toast.error('Failed to delete note: ' + error.message)
+  // Delete note mutation (kept separate from autosave)
+  const handleDelete = useCallback(async () => {
+    if (!note.id) return
+    
+    if (confirm('Are you sure you want to delete this note?')) {
+      try {
+        // Pause autosave during deletion to avoid conflicts
+        autosave.setPaused(true)
+        
+        await deleteNote(note.id)
+        onDelete(note.id)
+        toast.success('Note deleted')
+      } catch (error: any) {
+        toast.error('Failed to delete note: ' + error.message)
+        // Resume autosave if deletion failed
+        autosave.setPaused(false)
+      }
     }
-  })
+  }, [note.id, onDelete, autosave])
 
   // Load note content when note changes
   useEffect(() => {
@@ -75,32 +84,32 @@ export default function NotesEditorWrapper({
       
       setNoteContent(newContent)
       setNoteTitle(newTitle)
-      setHasUnsavedChanges(false)
     }
   }, [note.id, note.content, note.title])
 
   const handleContentChange = useCallback((content: string) => {
     setNoteContent(content)
-    setHasUnsavedChanges(true)
   }, [])
 
   const handleTitleChange = useCallback((title: string) => {
     setNoteTitle(title)
     onTitleChange(title)
-    setHasUnsavedChanges(true)
   }, [onTitleChange])
 
-  const handleSave = () => {
-    if (hasUnsavedChanges) {
-      saveMutation.mutate()
+  // Keyboard shortcut for manual save (Ctrl+S / Cmd+S)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault()
+        if (autosave.hasUnsavedChanges) {
+          autosave.saveNow()
+        }
+      }
     }
-  }
 
-  const handleDelete = () => {
-    if (confirm('Are you sure you want to delete this note?')) {
-      deleteNoteMutation.mutate()
-    }
-  }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [autosave])
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -114,38 +123,35 @@ export default function NotesEditorWrapper({
             className="text-lg font-semibold bg-transparent border-none outline-none w-full text-foreground"
             placeholder="Note title..."
           />
-          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-            {hasUnsavedChanges && (
-              <span className="text-orange-500">Unsaved changes</span>
-            )}
-            {!hasUnsavedChanges && !saveMutation.isPending && (
-              <>
-                <Check className="h-3 w-3" />
-                <span>Saved</span>
-              </>
-            )}
-            {saveMutation.isPending && (
-              <>
-                <Clock className="h-3 w-3" />
-                <span>Saving...</span>
-              </>
+          <div className="flex items-center justify-between mt-1">
+            {/* Autosave status indicator */}
+            <AutosaveStatusIndicator
+              status={autosave.status}
+              hasUnsavedChanges={autosave.hasUnsavedChanges}
+              isPaused={autosave.isPaused}
+              onSaveNow={autosave.saveNow}
+              onRetry={autosave.resetError}
+              onTogglePause={() => autosave.setPaused(!autosave.isPaused)}
+              showPauseButton={true}
+              showSaveButton={true}
+              compact={false}
+            />
+            
+            {/* Additional info for development */}
+            {process.env.NODE_ENV === 'development' && (
+              <span className="text-xs text-muted-foreground">
+                {autosave.status.retryCount > 0 && `Retry ${autosave.status.retryCount}/3`}
+              </span>
             )}
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={!hasUnsavedChanges || saveMutation.isPending}
-          >
-            <Save className="h-4 w-4 mr-1" />
-            Save
-          </Button>
+        
+        <div className="flex gap-2 ml-4">
           <Button
             size="sm"
             variant="ghost"
             onClick={handleDelete}
-            disabled={deleteNoteMutation.isPending}
+            className="text-destructive hover:text-destructive"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
