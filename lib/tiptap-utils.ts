@@ -1,6 +1,6 @@
 import type { Attrs, Node } from "@tiptap/pm/model"
 import type { Editor } from "@tiptap/react"
-import { pb } from './pocketbase'
+import { pb, getRelativeFileUrl } from './pocketbase'
 
 export const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
@@ -178,8 +178,8 @@ export const handleImageUpload = async (
     // Complete progress
     onProgress?.({ progress: 100 })
 
-    // Return the file URL from PocketBase
-    const fileUrl = pb.files.getUrl(record, record.image)
+    // Return a relative file URL that works with any PocketBase server
+    const fileUrl = getRelativeFileUrl(record, record.image)
     
     console.log('✅ Image uploaded to PocketBase:', fileUrl)
     return fileUrl

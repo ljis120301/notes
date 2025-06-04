@@ -1,4 +1,4 @@
-import { pb, Note, notesCollection } from './pocketbase'
+import { pb, Note, notesCollection, getRelativeFileUrl, normalizeImageUrls } from './pocketbase'
 
 // Helper function to ensure user is authenticated
 function ensureAuth() {
@@ -26,8 +26,8 @@ export async function uploadImage(file: File): Promise<string> {
 
   try {
     const record = await pb.collection('note_images').create(formData)
-    // Return the file URL that can be used in markdown
-    const imageUrl = pb.files.getURL(record, record.image)
+    // Return a relative file URL that works with any PocketBase server
+    const imageUrl = getRelativeFileUrl(record, record.image)
     return imageUrl
   } catch (error: unknown) {
     if (isAutoCancelled(error)) {
@@ -79,7 +79,14 @@ export async function getNotes(): Promise<Note[]> {
       sort: '-updated',
       filter: `user = "${userId}"`
     })
-    return records as unknown as Note[]
+    
+    // Transform legacy image URLs in all notes
+    const notesWithFixedUrls = records.map(record => ({
+      ...record,
+      content: normalizeImageUrls(record.content || '')
+    }))
+    
+    return notesWithFixedUrls as unknown as Note[]
   } catch (error: unknown) {
     if (isAutoCancelled(error)) {
       // Auto-cancelled request, silently return empty array and let other request complete
@@ -95,7 +102,14 @@ export async function getNotes(): Promise<Note[]> {
         const records = await pb.collection(notesCollection).getFullList({
           sort: '-updated'
         })
-        return records as unknown as Note[]
+        
+        // Transform legacy image URLs in all notes
+        const notesWithFixedUrls = records.map(record => ({
+          ...record,
+          content: normalizeImageUrls(record.content || '')
+        }))
+        
+        return notesWithFixedUrls as unknown as Note[]
       } catch (fallbackError: unknown) {
         if (isAutoCancelled(fallbackError)) {
           console.log('Fallback get notes request was auto-cancelled')
@@ -120,7 +134,13 @@ export async function getNote(id: string): Promise<Note> {
       throw new Error('Note not found or access denied')
     }
     
-    return record as unknown as Note
+    // Transform legacy image URLs in the note content
+    const noteWithFixedUrls = {
+      ...record,
+      content: normalizeImageUrls(record.content || '')
+    }
+    
+    return noteWithFixedUrls as unknown as Note
   } catch (error: unknown) {
     if (isAutoCancelled(error)) {
       console.log('Get note request was auto-cancelled')
@@ -204,7 +224,14 @@ export async function searchNotes(query: string): Promise<Note[]> {
       filter: `user = "${userId}" && (title ~ "${query}" || content ~ "${query}")`,
       sort: '-updated'
     })
-    return records as unknown as Note[]
+    
+    // Transform legacy image URLs in search results
+    const notesWithFixedUrls = records.map(record => ({
+      ...record,
+      content: normalizeImageUrls(record.content || '')
+    }))
+    
+    return notesWithFixedUrls as unknown as Note[]
   } catch (error: unknown) {
     if (isAutoCancelled(error)) {
       console.log('Search notes request was auto-cancelled')
@@ -220,7 +247,14 @@ export async function searchNotes(query: string): Promise<Note[]> {
           filter: `title ~ "${query}" || content ~ "${query}"`,
           sort: '-updated'
         })
-        return records as unknown as Note[]
+        
+        // Transform legacy image URLs in search results
+        const notesWithFixedUrls = records.map(record => ({
+          ...record,
+          content: normalizeImageUrls(record.content || '')
+        }))
+        
+        return notesWithFixedUrls as unknown as Note[]
       } catch (fallbackError: unknown) {
         if (isAutoCancelled(fallbackError)) {
           console.log('Fallback search notes request was auto-cancelled')
