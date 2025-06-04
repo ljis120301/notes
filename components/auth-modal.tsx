@@ -34,8 +34,9 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
       }
       onSuccess()
       onClose()
-    } catch (err: any) {
-      setError(err.message || 'Authentication failed')
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Authentication failed'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

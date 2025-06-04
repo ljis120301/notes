@@ -4,13 +4,12 @@ import { useState, useRef, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Note } from '@/lib/pocketbase'
 import { AppShell } from '@/components/app-shell'
-import { NotesSidebar, type NotesSidebarRef } from './notes-sidebar'
+import { NotesSidebar } from './notes-sidebar'
 import { EditorPlaceholder } from '@/components/editor-placeholder'
 import { ProtectedRoute } from '@/components/protected-route'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { LogOut } from 'lucide-react'
-import { ModeToggle } from './mode-toggle'
 import { getNote } from '@/lib/notes-api'
 import NotesEditorWrapper from './notes-editor-wrapper'
 
@@ -43,6 +42,7 @@ export function NotesApp() {
   const handleSaveNote = useCallback((updatedNote: Note) => {
     // The cache is already updated by auto-save, no need to do anything here
     // Just occasionally refresh sidebar to show updated timestamps
+    console.log('Note saved:', updatedNote.id)
     if (Math.random() < 0.1) { // 10% chance to refresh
       sidebarRef.current?.refreshNotes()
     }
@@ -58,6 +58,7 @@ export function NotesApp() {
 
   const handleTitleChange = useCallback((title: string) => {
     // The auto-save handles title changes, no need to update local state
+    console.log('Title changed to:', title)
   }, [])
 
   // Show loading state while note is being fetched

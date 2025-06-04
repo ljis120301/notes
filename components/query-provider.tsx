@@ -12,9 +12,9 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
         // More reasonable defaults for a notes app
         staleTime: 5 * 60 * 1000, // 5 minutes
         gcTime: 10 * 60 * 1000, // 10 minutes
-        retry: (failureCount, error: any) => {
+        retry: (failureCount, error: unknown) => {
           // Don't retry on authentication errors
-          if (error?.status === 401 || error?.status === 403) {
+          if ((error as { status?: number })?.status === 401 || (error as { status?: number })?.status === 403) {
             return false
           }
           return failureCount < 2
@@ -24,8 +24,8 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
         refetchOnMount: true, // Allow refetch on mount for fresh data
       },
       mutations: {
-        retry: (failureCount, error: any) => {
-          if (error?.status === 401 || error?.status === 403) {
+        retry: (failureCount, error: unknown) => {
+          if ((error as { status?: number })?.status === 401 || (error as { status?: number })?.status === 403) {
             return false
           }
           return failureCount < 2
