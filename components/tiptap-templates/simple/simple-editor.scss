@@ -1,0 +1,87 @@
+.simple-editor-wrapper {
+  --tt-toolbar-height: 44px;
+  --tt-theme-text: var(--tt-gray-light-900);
+  --tt-bg-color: oklch(1 0 0); // Light mode background (white)
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+
+  .dark & {
+    --tt-theme-text: var(--tt-gray-dark-900);
+    --tt-bg-color: oklch(0.145 0 0); // Dark mode background
+  }
+
+  .frappe & {
+    --tt-theme-text: var(--tt-gray-frappe-900);
+    --tt-bg-color: #303446; // Catppuccin Frappé base color
+  }
+
+  font-family: "Inter", sans-serif;
+  color: var(--tt-theme-text);
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-style: normal;
+  background-color: var(--tt-bg-color);
+}
+
+.simple-editor-wrapper .tiptap.ProseMirror {
+  font-family: "DM Sans", sans-serif;
+}
+
+.simple-editor-wrapper .content-wrapper {
+  flex: 1;
+  overflow-y: auto;
+
+  &::-webkit-scrollbar {
+    display: block;
+    width: 0.5rem;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--tt-scrollbar-color);
+    border-radius: 4px;
+  }
+
+  /* Firefox scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: var(--tt-scrollbar-color) transparent;
+}
+
+.simple-editor-wrapper .simple-editor-content {
+  max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.simple-editor-wrapper .simple-editor-content .tiptap.ProseMirror {
+  padding: 3rem 3rem;
+  min-height: 400px;
+  outline: none;
+}
+
+/* Ensure images render properly */
+.simple-editor-wrapper .tiptap.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1rem auto;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+.simple-editor-wrapper .tiptap.ProseMirror .tiptap-image {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1rem auto;
+}
+
+@media screen and (max-width: 480px) {
+  .simple-editor-wrapper .simple-editor-content .tiptap.ProseMirror {
+    padding: 1rem 1.5rem;
+  }
+}
