@@ -2,7 +2,7 @@ import PocketBase from 'pocketbase'
 
 // Hardcoded PocketBase URL using machine's IP address
 // This ensures all clients (localhost and network) connect to the same PocketBase instance
-const POCKETBASE_URL = 'http://10.0.0.15:6969'
+const POCKETBASE_URL = 'http://0.0.0.0:6969'
 
 console.log('🚀 PocketBase: Initializing PocketBase client with IP address:', POCKETBASE_URL)
 
