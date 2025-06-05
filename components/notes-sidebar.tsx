@@ -219,14 +219,14 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
       <TooltipProvider>
         <div className="h-full flex flex-col bg-card">
           {/* Header */}
-          <div className="p-4 border-b border-border bg-card/50">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-lg">Notes</h2>
+          <div className="p-3 sm:p-4 border-b border-border bg-card/50">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h2 className="font-semibold text-base sm:text-lg">Notes</h2>
               <Button 
                 onClick={handleCreateNote} 
                 size="sm" 
                 disabled={isLoading || createNoteMutation.isPending} 
-                className="transition-colors min-w-[70px]"
+                className="transition-colors min-w-[60px] sm:min-w-[70px] text-xs sm:text-sm"
               >
                 {createNoteMutation.isPending ? (
                   <div className="flex items-center space-x-1">
@@ -235,8 +235,8 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
                   </div>
                 ) : (
                   <>
-                    <Plus className="h-4 w-4 mr-1" />
-                    New
+                    <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                    <span className="hidden sm:inline">New</span>
                   </>
                 )}
               </Button>
@@ -244,13 +244,13 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
             
             {/* Search */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-2.5 sm:left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Search notes..."
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                className="w-full pl-8 sm:pl-9 pr-3 sm:pr-4 py-1.5 sm:py-2 text-xs sm:text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
                 disabled={isLoading}
               />
             </div>
@@ -280,31 +280,36 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
                 ))}
               </div>
             ) : displayedNotes.length === 0 ? (
-              <div className="p-4 text-center text-muted-foreground">
-                {searchQuery ? 'No notes found' : 'No notes yet. Create your first note!'}
+              <div className="p-3 sm:p-4 text-center text-muted-foreground">
+                <div className="text-xs sm:text-sm">
+                  {searchQuery ? 'No notes found' : 'No notes yet. Create your first note!'}
+                </div>
               </div>
             ) : (
-              <div className="space-y-1 p-2">
+              <div className="space-y-1 p-1.5 sm:p-2">
                 {displayedNotes.map((note) => (
                   <div
                     key={note.id}
                     onClick={() => onSelectNote(note)}
-                    className={`group p-3 rounded-md border cursor-pointer transition-colors duration-150 ${
+                    className={`group p-2.5 sm:p-3 rounded-md border cursor-pointer transition-colors duration-150 ${
                       selectedNote?.id === note.id
                         ? 'bg-accent border-accent-foreground/20'
                         : 'border-border hover:bg-accent/50'
                     }`}
                   >
-                    <div className="flex items-start space-x-3">
-                      <FileText className="h-4 w-4 text-muted-foreground mt-1 flex-shrink-0" />
+                    <div className="flex items-start space-x-2 sm:space-x-3">
+                      <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground mt-0.5 sm:mt-1 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
-                          <div className="font-medium text-sm truncate cursor-pointer flex items-center space-x-2">
+                          <div className="font-medium text-xs sm:text-sm truncate cursor-pointer flex items-center space-x-1.5 sm:space-x-2">
                             <span>{note.title || 'Untitled'}</span>
                             {note.pinned && (
-                              <Badge variant="secondary" className="text-xs px-1 py-0">
-                                <Pin className="h-3 w-3" />
+                              <Badge variant="secondary" className="text-xs px-1 py-0 hidden sm:inline-flex">
+                                <Pin className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                               </Badge>
+                            )}
+                            {note.pinned && (
+                              <Pin className="h-2.5 w-2.5 text-muted-foreground sm:hidden" />
                             )}
                           </div>
                           <Tooltip>
@@ -312,14 +317,14 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity shrink-0"
+                                className="h-5 w-5 sm:h-6 sm:w-6 p-0 opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity shrink-0"
                                 onClick={(event) => handleTogglePin(note, event)}
                                 disabled={pinNoteMutation.isPending || unpinNoteMutation.isPending}
                               >
                                 {note.pinned ? (
-                                  <PinOff className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                  <PinOff className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground hover:text-foreground" />
                                 ) : (
-                                  <Pin className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                  <Pin className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground hover:text-foreground" />
                                 )}
                               </Button>
                             </TooltipTrigger>
@@ -328,12 +333,13 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
                             </TooltipContent>
                           </Tooltip>
                         </div>
-                        <div className="text-xs text-muted-foreground truncate mb-2 cursor-pointer">
+                        <div className="text-xs text-muted-foreground truncate mb-1.5 sm:mb-2 cursor-pointer">
                           {note.content ? 
                             (() => {
                               const plainText = stripHtmlTags(note.content)
-                              return plainText.length > 60 
-                                ? plainText.substring(0, 60) + '...' 
+                              const maxLength = window.innerWidth < 768 ? 45 : 60
+                              return plainText.length > maxLength 
+                                ? plainText.substring(0, maxLength) + '...' 
                                 : plainText
                             })()
                             : 'No content'

@@ -118,7 +118,7 @@ const StaticMainToolbarContent = React.memo(() => {
   const handleLinkClick = React.useCallback(() => setMobileView("link"), [])
   const handleBack = React.useCallback(() => setMobileView("main"), [])
 
-  if (mobileView === "highlighter") {
+  if (isMobile && mobileView === "highlighter") {
     return (
       <>
         <ToolbarGroup>
@@ -133,7 +133,7 @@ const StaticMainToolbarContent = React.memo(() => {
     )
   }
 
-  if (mobileView === "link") {
+  if (isMobile && mobileView === "link") {
     return (
       <>
         <ToolbarGroup>
@@ -148,6 +148,36 @@ const StaticMainToolbarContent = React.memo(() => {
     )
   }
 
+  // Mobile main view - simplified toolbar
+  if (isMobile) {
+    return (
+      <>
+        <ToolbarGroup>
+          <UndoRedoButton action="undo" />
+          <UndoRedoButton action="redo" />
+        </ToolbarGroup>
+        <ToolbarSeparator />
+        <ToolbarGroup>
+          <HeadingDropdownMenu levels={[1, 2, 3]} />
+          <ListDropdownMenu types={["bulletList", "orderedList"]} />
+        </ToolbarGroup>
+        <ToolbarSeparator />
+        <ToolbarGroup>
+          <MarkButton type="bold" />
+          <MarkButton type="italic" />
+          <MarkButton type="underline" />
+          <ColorHighlightPopoverButton onClick={handleHighlighterClick} />
+          <LinkButton onClick={handleLinkClick} />
+        </ToolbarGroup>
+        <ToolbarSeparator />
+        <ToolbarGroup>
+          <ImageUploadButton text="+" />
+        </ToolbarGroup>
+      </>
+    )
+  }
+
+  // Desktop full toolbar
   return (
     <>
       <Spacer />
@@ -170,12 +200,8 @@ const StaticMainToolbarContent = React.memo(() => {
         <MarkButton type="strike" />
         <MarkButton type="code" />
         <MarkButton type="underline" />
-        {!isMobile ? (
-          <ColorHighlightPopover />
-        ) : (
-          <ColorHighlightPopoverButton onClick={handleHighlighterClick} />
-        )}
-        {!isMobile ? <LinkPopover /> : <LinkButton onClick={handleLinkClick} />}
+        <ColorHighlightPopover />
+        <LinkPopover />
       </ToolbarGroup>
       <ToolbarSeparator />
       <ToolbarGroup>
@@ -194,7 +220,6 @@ const StaticMainToolbarContent = React.memo(() => {
         <ImageUploadButton text="Add" />
       </ToolbarGroup>
       <Spacer />
-      {isMobile && <ToolbarSeparator />}
     </>
   )
 })
@@ -370,26 +395,38 @@ export const SimpleEditor = React.memo(({
   return (
     <div className="simple-editor-wrapper">
       <EditorContext.Provider value={{ editor }}>
-        <Toolbar
-          ref={toolbarRef}
-          style={
-            isMobile
-              ? {
-                  bottom: `calc(100% - ${windowSize.height - bodyRect.y}px)`,
-                }
-              : {}
-          }
-        >
-          <StaticMainToolbarContent />
-        </Toolbar>
-
-        <div className="content-wrapper">
-          <EditorContent
-            editor={editor}
-            role="presentation"
-            className="simple-editor-content"
-          />
-        </div>
+        {isMobile ? (
+          <>
+            <Toolbar ref={toolbarRef} className="toolbar-mobile-top">
+              <StaticMainToolbarContent />
+            </Toolbar>
+            <div className="content-wrapper">
+              <EditorContent
+                editor={editor}
+                role="presentation"
+                className="simple-editor-content"
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <Toolbar
+              ref={toolbarRef}
+              style={{
+                bottom: `calc(100% - ${windowSize.height - bodyRect.y}px)`,
+              }}
+            >
+              <StaticMainToolbarContent />
+            </Toolbar>
+            <div className="content-wrapper">
+              <EditorContent
+                editor={editor}
+                role="presentation"
+                className="simple-editor-content"
+              />
+            </div>
+          </>
+        )}
       </EditorContext.Provider>
     </div>
   )

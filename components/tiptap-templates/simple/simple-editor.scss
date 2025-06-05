@@ -58,7 +58,7 @@
 }
 
 .simple-editor-wrapper .simple-editor-content .tiptap.ProseMirror {
-  padding: 3rem 3rem;
+  padding: 2rem 3rem;
   min-height: 400px;
   outline: none;
 }
@@ -80,8 +80,50 @@
   margin: 1rem auto;
 }
 
+/* Mobile styles */
+@media screen and (max-width: 768px) {
+  .simple-editor-wrapper .simple-editor-content {
+    max-width: 100%;
+    padding: 0 0.5rem;
+  }
+  
+  .simple-editor-wrapper .simple-editor-content .tiptap.ProseMirror {
+    padding: 1.5rem 1rem;
+    min-height: 300px;
+  }
+
+  /* Mobile toolbar at top */
+  .simple-editor-wrapper .toolbar-mobile-top {
+    position: sticky !important;
+    top: 0 !important;
+    bottom: auto !important;
+    z-index: 10;
+    border-bottom: 1px solid var(--border);
+    background: var(--background);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .simple-editor-wrapper .content-wrapper {
+    padding-top: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Mobile editor adjustments */
+  .simple-editor-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+}
+
+/* Small mobile styles */
 @media screen and (max-width: 480px) {
   .simple-editor-wrapper .simple-editor-content .tiptap.ProseMirror {
-    padding: 1rem 1.5rem;
+    padding: 1rem 0.75rem;
+    font-size: 0.95rem;
+    line-height: 1.6;
   }
 }
