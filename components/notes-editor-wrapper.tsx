@@ -133,52 +133,54 @@ const NotesEditorWrapper = ({
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Header */}
-      <div className="border-b bg-background p-4 flex items-center justify-between">
-        <div className="flex-1">
+      <div className="border-b bg-background p-3 sm:p-4 flex items-center justify-between">
+        <div className="flex-1 min-w-0">
           <input
             type="text"
             value={noteTitle}
             onChange={(e) => handleTitleChange(e.target.value)}
-            className="text-lg font-semibold bg-transparent border-none outline-none w-full text-foreground"
+            className="text-base sm:text-lg font-semibold bg-transparent border-none outline-none w-full text-foreground"
             placeholder="Note title..."
           />
           <div className="flex items-center justify-between mt-1">
             {/* Autosave status indicator */}
-            <AutosaveStatusIndicator
-              status={autosave.status}
-              hasUnsavedChanges={autosave.hasUnsavedChanges}
-              isPaused={autosave.isPaused}
-              onSaveNow={autosave.saveNow}
-              onRetry={autosave.resetError}
-              onTogglePause={() => autosave.setPaused(!autosave.isPaused)}
-              showPauseButton={true}
-              showSaveButton={true}
-              compact={false}
-            />
+            <div className="flex-1 min-w-0">
+              <AutosaveStatusIndicator
+                status={autosave.status}
+                hasUnsavedChanges={autosave.hasUnsavedChanges}
+                isPaused={autosave.isPaused}
+                onSaveNow={autosave.saveNow}
+                onRetry={autosave.resetError}
+                onTogglePause={() => autosave.setPaused(!autosave.isPaused)}
+                showPauseButton={false} // Hide on mobile for simplicity
+                showSaveButton={true}
+                compact={true} // Use compact mode for mobile
+              />
+            </div>
             
             {/* Additional info for development */}
             {process.env.NODE_ENV === 'development' && (
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-muted-foreground hidden sm:inline">
                 {autosave.status.retryCount > 0 && `Retry ${autosave.status.retryCount}/3`}
               </span>
             )}
           </div>
         </div>
         
-        <div className="flex gap-2 ml-4">
+        <div className="flex gap-1 sm:gap-2 ml-2 sm:ml-4 flex-shrink-0">
           <Button
             size="sm"
             variant="ghost"
             onClick={handleDelete}
-            className="text-destructive hover:text-destructive"
+            className="text-destructive hover:text-destructive h-8 w-8 sm:h-9 sm:w-9 p-0"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </Button>
         </div>
       </div>
 
       {/* Editor */}
-      <div className="flex-1 bg-background">
+      <div className="flex-1 bg-background overflow-hidden">
         <SimpleEditor key={note.id} {...editorProps} />
       </div>
     </div>

@@ -412,11 +412,56 @@
     background-color: var(--tt-bg-color);
   }
 
-  @media screen and (max-width: 480px) {
-    .simple-editor-wrapper .simple-editor-content .tiptap.ProseMirror {
-      padding: 1rem 1.5rem;
-    }
+  /* Mobile-specific improvements */
+@media screen and (max-width: 768px) {
+  /* Improve touch targets for mobile */
+  button, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
   }
+  
+  /* Better input field sizing */
+  input, textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  /* Optimize sidebar for mobile */
+  .mobile-sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+  }
+  
+  .mobile-sidebar.open {
+    transform: translateX(0);
+  }
+
+  /* Ensure mobile editor toolbar is always visible */
+  .toolbar-mobile-top {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Dark mode shadow for mobile toolbar */
+  .dark .toolbar-mobile-top {
+    box-shadow: 0 2px 4px rgba(255, 255, 255, 0.1);
+  }
+
+  /* Frappe theme shadow for mobile toolbar */
+  .frappe .toolbar-mobile-top {
+    box-shadow: 0 2px 4px rgba(198, 208, 245, 0.1);
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .simple-editor-wrapper .simple-editor-content .tiptap.ProseMirror {
+    padding: 1rem 1.5rem;
+  }
+  
+  /* Extra small mobile adjustments */
+  button, [role="button"] {
+    min-height: 40px;
+    min-width: 40px;
+  }
+}
   
   /* Performance optimizations */
   .markdown-editor textarea {

@@ -1,128 +1,118 @@
-# TipTap Editor Font Selection Integration Prompt
+# Mobile Optimization Prompt for Next.js 15 + Tailwind 4 Site
 
-You are tasked with integrating a font selection tool into an existing React TipTap editor component. This implementation must follow Next.js 15 and Tailwind 4 best practices with strict adherence to the following requirements:
+## Objective
+Add comprehensive mobile responsiveness and optimize the site for smaller screen sizes while maintaining all existing functionality, themes, and database connections.
 
-## Critical Requirements & Restrictions
+## Critical Requirements & Constraints
 
-### Tailwind 4 Compliance
-- **FORBIDDEN**: Do NOT create any `tailwind.config.js` or `tailwind.config.ts` file under any circumstances
-- Tailwind 4 uses CSS-based configuration and automatic discovery
-- Use only native Tailwind 4 utility classes and CSS custom properties
-- Implement font loading through CSS `@import` or `@font-face` declarations
+### Framework & Technology Standards
+- **Next.js 15**: Follow all Next.js 15 conventions, standards, and best practices
+- **Tailwind 4**: Use Tailwind 4 syntax and features (NO tailwind.config.js file - Tailwind 4 doesn't use one)
+- **TypeScript**: Fix all TypeScript errors and ensure production build compatibility
+- **PocketBase**: DO NOT modify any backend DB calls or interfere with PocketBase connections
 
-### Code Quality Standards
-- **NO SHORTCUTS**: Provide complete, production-ready code
-- **NO PLACEHOLDERS**: Never use "// Rest of code here" or similar lazy implementations
-- **NO BAND-AID FIXES**: Implement proper, maintainable solutions
-- **FULL COMPLETION**: The font selection feature must be fully functional
+### Theme Support Requirements
+Support all three themes with proper mobile optimization:
+1. **Light Theme**
+2. **Dark Theme** 
+3. **Catppuccin Frappé Theme** (separate from dark theme)
 
-### Technology Stack Constraints
-- **Components**: Use ONLY Shadcn/ui components (install new ones if needed)
-- **Backend**: Do NOT modify or interfere with PocketBase database operations
-- **Framework**: Follow Next.js 15 App Router conventions and best practices
+### Methodology Requirements
+- **No Shortcuts**: Use available tools to discover and understand missing information
+- **Full Understanding**: Only make code changes after completely understanding each file's purpose and role
+- **Comprehensive Analysis**: Examine the entire project structure before making changes
 
-## Implementation Requirements
+## Tasks to Complete
 
-### 1. Font Selection Component
-Create a comprehensive font selection dropdown that includes:
-- A curated list of web-safe fonts and Google Fonts
-- Font preview functionality showing actual font rendering
-- Search/filter capability for easy font discovery
-- Proper TypeScript interfaces and type safety
-- Accessible keyboard navigation and screen reader support
+### 1. Project Discovery & Analysis
+- Use tools to explore the current project structure
+- Identify all components, layouts, and pages
+- Understand the current theme implementation
+- Map out the TipTap editor integration
+- Document PocketBase connection patterns
 
-### 2. TipTap Integration
-Implement the font selection within the TipTap editor:
-- Extend TipTap with custom font family extension if needed
-- Integrate font selection into the editor toolbar
-- Ensure font changes apply correctly to selected text
-- Maintain undo/redo functionality
-- Handle font persistence in editor content
+### 2. Mobile Layout Optimization
+- Implement responsive breakpoints for mobile, tablet, and desktop
+- Optimize navigation for touch interfaces
+- Ensure proper touch targets (minimum 44px)
+- Implement mobile-first design approach
+- Add proper spacing and typography scaling
 
-### 3. Font Loading Strategy
-Implement efficient font loading:
-- Use CSS `@import` statements for Google Fonts
-- Implement font display optimization (`font-display: swap`)
-- Ensure fonts load only when selected/needed
-- Handle loading states and fallbacks gracefully
+### 3. TipTap Editor Mobile Optimization
+Follow best practices for TipTap editor on mobile:
+- Implement mobile-friendly toolbar
+- Optimize editor controls for touch
+- Ensure proper keyboard handling on mobile devices
+- Add responsive editor container sizing
+- Implement proper focus management
 
-### 4. Styling Requirements
-Follow Tailwind 4 best practices:
-- Use semantic color classes and CSS custom properties
-- Implement responsive design patterns
-- Follow Tailwind 4's container queries if applicable
-- Use proper spacing, typography, and layout utilities
+### 4. Theme Implementation
+Ensure all three themes work properly on mobile:
+- Light theme mobile optimizations
+- Dark theme mobile optimizations  
+- Catppuccin Frappé theme mobile optimizations
+- Proper theme switching on mobile devices
+- Consistent theme application across all components
 
-### 5. Performance Considerations
-- Lazy load fonts to improve initial page performance
-- Implement proper font subset loading if using Google Fonts
-- Use font-display strategies to prevent layout shift
-- Minimize bundle size impact
+### 5. Performance & Accessibility
+- Optimize for mobile performance
+- Ensure proper semantic HTML
+- Implement proper ARIA labels
+- Test with screen readers
+- Optimize loading states for mobile
 
-## Shadcn/ui Components to Utilize
+## Implementation Guidelines
 
-Consider using these Shadcn components (install additional ones if needed):
-- `Select` for the font dropdown
-- `Button` for toolbar integration
-- `Popover` for font preview
-- `Input` for font search functionality
-- `ScrollArea` for long font lists
-- `Command` for searchable font selection
+### Tailwind 4 Specific
+- Use native CSS custom properties for theming
+- Utilize Tailwind 4's improved container queries
+- Implement proper responsive utilities
+- Use modern Tailwind 4 features for better mobile support
 
-## Expected Deliverables
+### Next.js 15 Specific
+- Follow App Router conventions
+- Use proper Server/Client Component patterns
+- Implement proper loading and error boundaries
+- Ensure proper metadata handling for mobile
 
-### 1. Font Selection Component (`FontSelector.tsx`)
-Complete React component with:
-- Font list management
-- Search functionality
-- Preview capabilities
-- TipTap integration hooks
+### Mobile UX Best Practices
+- Implement proper touch gestures
+- Add loading states for mobile interactions
+- Ensure proper form handling on mobile
+- Implement proper mobile navigation patterns
+- Add proper mobile-specific animations
 
-### 2. TipTap Extension (if needed)
-Custom extension for font family support:
-- Proper font family attribute handling
-- Integration with TipTap's command system
-- Schema definitions for font family nodes/marks
+## Deliverables
 
-### 3. CSS Font Declarations
-Proper font loading implementation:
-- CSS file with font imports
-- Font family definitions
-- Loading optimization strategies
+1. **Analysis Report**: Comprehensive understanding of current project structure
+2. **Mobile-Optimized Components**: All components updated for mobile responsiveness
+3. **Theme Implementation**: All three themes working on mobile
+4. **TipTap Integration**: Mobile-optimized editor implementation
+5. **TypeScript Compliance**: All TypeScript errors resolved
+6. **Production Ready**: Verified build process works correctly
 
-### 4. Integration Code
-Show how to integrate into existing TipTap editor:
-- Toolbar button implementation
-- Command registration
-- State management
+## Testing Requirements
 
-### 5. TypeScript Definitions
-Complete type definitions for:
-- Font configuration objects
-- Component props interfaces
-- TipTap extension types
+- Test on multiple mobile devices/screen sizes
+- Verify all themes work correctly on mobile
+- Ensure TipTap editor functions properly on touch devices
+- Confirm PocketBase connections remain intact
+- Validate production build process
 
+## Restrictions
+
+- **NO tailwind.config.js creation** (Tailwind 4 doesn't use it)
+- **NO backend/DB modifications** (preserve PocketBase connections)
+- **NO shortcuts** (use tools to understand before changing)
+- **NO TypeScript errors** (must build for production)
 
 ## Success Criteria
 
-The implementation must:
-1. ✅ Provide a working font selection dropdown in TipTap toolbar
-2. ✅ Allow users to change font family of selected text
-3. ✅ Show font previews in the selection dropdown
-4. ✅ Load fonts efficiently without performance impact
-5. ✅ Maintain proper TypeScript typing throughout
-6. ✅ Follow all Tailwind 4 best practices (no config file)
-7. ✅ Use only Shadcn/ui components for UI elements
-8. ✅ Not interfere with PocketBase backend operations
-9. ✅ Be fully accessible and keyboard navigable
-10. ✅ Handle edge cases and error states gracefully
+- Site is fully responsive on all screen sizes
+- All three themes work perfectly on mobile
+- TipTap editor is mobile-optimized
+- No breaking changes to existing functionality
+- Production build succeeds without errors
+- PocketBase integration remains functional
 
-## Additional Context
-
-- The editor should support both system fonts and web fonts
-- Font changes should be immediately visible in the editor
-- The solution should be scalable for adding more fonts later
-- Consider internationalization if the application supports multiple languages
-- Ensure the implementation works across different browsers and devices
-
-Provide complete, production-ready code that fulfills all requirements without shortcuts or placeholders. The font selection feature should integrate seamlessly with the existing TipTap editor and enhance the user experience significantly.
+Start by using available tools to explore and understand the current project structure, then proceed with the mobile optimization implementation following all specified requirements and constraints.
