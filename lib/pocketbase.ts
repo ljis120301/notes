@@ -2,13 +2,18 @@ import PocketBase from 'pocketbase'
 
 // Dynamic PocketBase URL that works in all environments
 const getPocketBaseURL = () => {
-  // First, check for explicit environment variable
-  if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_POCKETBASE_URL) {
+  // First priority: explicit environment variable (works for both client and server)
+  if (process.env.NEXT_PUBLIC_POCKETBASE_URL) {
     return process.env.NEXT_PUBLIC_POCKETBASE_URL
   }
   
+  // Second priority: server-side environment variable
+  if (typeof window === 'undefined' && process.env.POCKETBASE_URL) {
+    return process.env.POCKETBASE_URL
+  }
+  
+  // Third priority: client-side auto-detection for development
   if (typeof window !== 'undefined') {
-    // Client-side: auto-detect based on current environment
     const protocol = window.location.protocol
     const hostname = window.location.hostname
     
@@ -22,19 +27,22 @@ const getPocketBaseURL = () => {
     if (isDevelopment) {
       // Development: use custom port 6969
       return `${protocol}//${hostname}:6969`
-    } else {
-      // Production: use standard HTTPS port (443) - no port needed in URL
-      return `https://${hostname}`
     }
   }
   
-  // Server-side fallback
-  return process.env.POCKETBASE_URL || 'http://localhost:6969'
+  // Final fallback
+  return 'http://localhost:6969'
 }
 
 const POCKETBASE_URL = getPocketBaseURL()
 
-console.log('🚀 PocketBase: Initializing PocketBase client with dynamic URL:', POCKETBASE_URL)
+console.log('🚀 PocketBase: Initializing PocketBase client with URL:', POCKETBASE_URL)
+console.log('🔧 PocketBase: Environment check:', {
+  NEXT_PUBLIC_POCKETBASE_URL: process.env.NEXT_PUBLIC_POCKETBASE_URL,
+  NODE_ENV: process.env.NODE_ENV,
+  isClient: typeof window !== 'undefined',
+  currentHost: typeof window !== 'undefined' ? window.location.host : 'server-side'
+})
 
 // PocketBase instance with hardcoded IP and default localStorage auth store
 export const pb = new PocketBase(POCKETBASE_URL)

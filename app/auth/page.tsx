@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { FileText, LogIn, UserPlus, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
-import { pb } from '@/lib/pocketbase'
 import { ModeToggle } from '@/components/mode-toggle'
 
 export default function AuthPage() {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, memo } from 'react'
 import { SimpleEditor } from './tiptap-templates/simple/simple-editor'
 import { Button } from '@/components/ui/button'
 import { Trash2 } from 'lucide-react'
@@ -90,14 +90,12 @@ const NotesEditorWrapper = ({
 
   // Load note content when note changes - but don't cause re-renders
   useEffect(() => {
-    if (note) {
-      const newTitle = note.title || ''
-      const newContent = normalizeImageUrls(note.content || '')
-      
-      setNoteTitle(newTitle)
-      setNoteContent(newContent)
-    }
-  }, [note.id]) // Only depend on note.id to prevent unnecessary updates
+    const newTitle = note.title || ''
+    const newContent = normalizeImageUrls(note.content || '')
+    
+    setNoteTitle(newTitle)
+    setNoteContent(newContent)
+  }, [note.id, note.title, note.content]) // Include all note properties used in effect
 
   // Stable callback for content changes
   const handleContentChange = useCallback((content: string) => {

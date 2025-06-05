@@ -1,6 +1,6 @@
 import type { Attrs, Node } from "@tiptap/pm/model"
 import type { Editor } from "@tiptap/react"
-import { pb, getRelativeFileUrl, getDynamicFileUrl } from './pocketbase'
+import { pb, getDynamicFileUrl } from './pocketbase'
 
 export const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
