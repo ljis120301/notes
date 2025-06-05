@@ -44,10 +44,28 @@ export interface AutosaveResult {
 }
 
 const DEFAULT_OPTIONS: Required<AutosaveOptions> = {
-  delay: 2000,
+  delay: 5000,
   maxRetries: 3,
   enableOfflineSupport: true,
-  isChanged: (current, previous) => current.trim() !== previous.trim(),
+  isChanged: (current, previous) => {
+    const currentTrimmed = current.trim()
+    const previousTrimmed = previous.trim()
+    
+    if (currentTrimmed === previousTrimmed) return false
+    
+    const lengthDiff = Math.abs(currentTrimmed.length - previousTrimmed.length)
+    
+    if (lengthDiff < 5) {
+      const currentLines = currentTrimmed.split('\n').length
+      const previousLines = previousTrimmed.split('\n').length
+      const currentHtml = (currentTrimmed.match(/</g) || []).length
+      const previousHtml = (previousTrimmed.match(/</g) || []).length
+      
+      return currentLines !== previousLines || Math.abs(currentHtml - previousHtml) > 1
+    }
+    
+    return true
+  },
   onSaveSuccess: () => {},
   onSaveError: () => {},
   onStatusChange: () => {},

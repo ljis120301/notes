@@ -3,6 +3,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/lib/auth-context";
 import { QueryProvider } from "@/components/query-provider";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "Notes App",
@@ -50,6 +51,7 @@ export default function RootLayout({
           >
             <AuthProvider>
               {children}
+              <Toaster position="top-right" />
             </AuthProvider>
           </ThemeProvider>
         </QueryProvider>

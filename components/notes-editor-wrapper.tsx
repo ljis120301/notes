@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react'
 import { SimpleEditor } from './tiptap-templates/simple/simple-editor'
 import { Button } from '@/components/ui/button'
 import { Trash2 } from 'lucide-react'
@@ -9,6 +9,7 @@ import { deleteNote } from '@/lib/notes-api'
 import { toast } from 'sonner'
 import { useAutosave } from '@/hooks/use-autosave'
 import { AutosaveStatusIndicator } from '@/components/autosave-status'
+import { normalizeImageUrls } from '@/lib/pocketbase'
 
 interface NotesEditorWrapperProps {
   note: Note
@@ -17,25 +18,37 @@ interface NotesEditorWrapperProps {
   onTitleChange: (title: string) => void
 }
 
-export default function NotesEditorWrapper({ 
+// Memoized component to prevent unnecessary re-renders
+const NotesEditorWrapper = ({ 
   note, 
   onSave, 
   onDelete, 
   onTitleChange 
-}: NotesEditorWrapperProps) {
-  const [noteContent, setNoteContent] = useState('')
+}: NotesEditorWrapperProps) => {
   const [noteTitle, setNoteTitle] = useState('')
+  
+  // Restore noteContent state - needed for autosave to work properly
+  // SimpleEditor is still isolated from re-renders via memo(() => true)
+  const [noteContent, setNoteContent] = useState('')
 
-  // Initialize autosave with comprehensive options
+  // Initialize autosave with faster delays for better UX
   const autosave = useAutosave(note.id || null, noteTitle, noteContent, {
-    delay: 2000, // 2 second debounce
+    delay: 3000, // 3 second debounce - good balance of performance and responsiveness
     maxRetries: 3,
     enableOfflineSupport: true,
-    // Custom comparison to ignore whitespace-only changes
-    isChanged: (current, previous) => current.trim() !== previous.trim(),
+    // More responsive change detection
+    isChanged: (current, previous) => {
+      const currentTrimmed = current.trim()
+      const previousTrimmed = previous.trim()
+      
+      if (currentTrimmed === previousTrimmed) return false
+      
+      // Save on smaller changes now that we have better performance
+      return Math.abs(currentTrimmed.length - previousTrimmed.length) > 5 ||
+             currentTrimmed.split('\n').length !== previousTrimmed.split('\n').length
+    },
     onSaveSuccess: (updatedNote) => {
       onSave(updatedNote)
-      toast.success('Note saved', { duration: 1000 })
     },
     onSaveError: (error) => {
       if (error.message?.includes('connection') || error.message?.includes('network')) {
@@ -75,17 +88,18 @@ export default function NotesEditorWrapper({
     }
   }, [note.id, onDelete, autosave])
 
-  // Load note content when note changes
+  // Load note content when note changes - but don't cause re-renders
   useEffect(() => {
     if (note) {
-      const newContent = note.content || ''
       const newTitle = note.title || ''
+      const newContent = normalizeImageUrls(note.content || '')
       
-      setNoteContent(newContent)
       setNoteTitle(newTitle)
+      setNoteContent(newContent)
     }
-  }, [note])
+  }, [note.id]) // Only depend on note.id to prevent unnecessary updates
 
+  // Stable callback for content changes
   const handleContentChange = useCallback((content: string) => {
     setNoteContent(content)
   }, [])
@@ -109,6 +123,14 @@ export default function NotesEditorWrapper({
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [autosave])
+
+  // Memoize the editor props to prevent re-creation - critical for performance
+  const editorProps = useMemo(() => ({
+    initialContent: normalizeImageUrls(note.content || ''),
+    onContentChange: handleContentChange,
+    noteId: note.id,
+    noteTitle: note.title || ''
+  }), [note.content, note.id, note.title, handleContentChange])
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -159,13 +181,16 @@ export default function NotesEditorWrapper({
 
       {/* Editor */}
       <div className="flex-1 bg-background">
-        <SimpleEditor 
-          initialContent={note.content || ''}
-          onContentChange={handleContentChange}
-          noteId={note.id}
-          noteTitle={note.title || ''}
-        />
+        <SimpleEditor key={note.id} {...editorProps} />
       </div>
     </div>
   )
-} 
+}
+
+// Export memoized component with custom comparison to prevent re-renders
+export default memo(NotesEditorWrapper, (prevProps, nextProps) => {
+  // Only re-render if the note ID actually changes
+  return prevProps.note.id === nextProps.note.id &&
+         prevProps.note.title === nextProps.note.title &&
+         prevProps.note.content === nextProps.note.content
+}) 

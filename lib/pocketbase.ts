@@ -1,13 +1,51 @@
 import PocketBase from 'pocketbase'
 
-// Hardcoded PocketBase URL using machine's IP address
-// This ensures all clients (localhost and network) connect to the same PocketBase instance
-const POCKETBASE_URL = 'http://localhost:6969'
+// Dynamic PocketBase URL that works in all environments
+const getPocketBaseURL = () => {
+  // First, check for explicit environment variable
+  if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_POCKETBASE_URL) {
+    return process.env.NEXT_PUBLIC_POCKETBASE_URL
+  }
+  
+  if (typeof window !== 'undefined') {
+    // Client-side: auto-detect based on current environment
+    const protocol = window.location.protocol
+    const hostname = window.location.hostname
+    
+    // Development detection (localhost or IP addresses)
+    const isDevelopment = hostname === 'localhost' || 
+                         hostname === '127.0.0.1' || 
+                         /^192\.168\./.test(hostname) || 
+                         /^10\./.test(hostname) || 
+                         /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname)
+    
+    if (isDevelopment) {
+      // Development: use custom port 6969
+      return `${protocol}//${hostname}:6969`
+    } else {
+      // Production: use standard HTTPS port (443) - no port needed in URL
+      return `https://${hostname}`
+    }
+  }
+  
+  // Server-side fallback
+  return process.env.POCKETBASE_URL || 'http://localhost:6969'
+}
 
-console.log('🚀 PocketBase: Initializing PocketBase client with IP address:', POCKETBASE_URL)
+const POCKETBASE_URL = getPocketBaseURL()
+
+console.log('🚀 PocketBase: Initializing PocketBase client with dynamic URL:', POCKETBASE_URL)
 
 // PocketBase instance with hardcoded IP and default localStorage auth store
 export const pb = new PocketBase(POCKETBASE_URL)
+
+// Type definition for PocketBase records
+export interface PocketBaseRecord {
+  id: string
+  collectionId: string
+  collectionName: string
+  [key: string]: unknown
+}
 
 // Debug auth state on initialization
 if (typeof window !== 'undefined') {
@@ -22,7 +60,7 @@ if (typeof window !== 'undefined') {
  * Generates a dynamic file URL that works with the current PocketBase URL
  * This replaces hardcoded URLs and allows the app to work when deployed anywhere
  */
-export function getDynamicFileUrl(record: any, filename: string): string {
+export function getDynamicFileUrl(record: PocketBaseRecord, filename: string): string {
   // Use the current pb instance URL, not a hardcoded one
   return pb.files.getUrl(record, filename)
 }
@@ -52,7 +90,7 @@ export function fixLegacyFileUrl(url: string): string {
  * Gets a relative file path that can be used with any PocketBase server
  * Format: /api/files/{collection}/{record}/{filename}
  */
-export function getRelativeFileUrl(record: any, filename: string): string {
+export function getRelativeFileUrl(record: PocketBaseRecord, filename: string): string {
   return `/api/files/${record.collectionId}/${record.id}/${filename}`
 }
 

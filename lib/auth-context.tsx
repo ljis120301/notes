@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { pb } from './pocketbase'
 
 interface User {
@@ -15,8 +16,8 @@ interface AuthContextType {
   user: User | null
   loading: boolean
   isAuthenticated: boolean
-  login: (email: string, password: string) => Promise<void>
-  register: (email: string, password: string, name?: string) => Promise<void>
+  login: (email: string, password: string) => Promise<boolean>
+  register: (email: string, password: string, name?: string) => Promise<boolean>
   logout: () => void
   refreshAuth: () => Promise<void>
 }
@@ -86,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<boolean> => {
     try {
       setLoading(true)
       console.log('🔐 AuthContext: Attempting login for:', email)
@@ -103,15 +104,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       setUser(userData)
       console.log('✅ Login process complete for:', userData.email)
+      toast.success('Welcome back!')
+      return true
     } catch (error: unknown) {
       console.error('❌ Login failed:', error)
-      throw error
+      
+      // Handle specific PocketBase authentication errors
+      if (error && typeof error === 'object' && 'status' in error) {
+        const pbError = error as { status: number; message?: string }
+        if (pbError.status === 400) {
+          toast.error('Invalid email or password. Please check your credentials and try again.')
+        } else {
+          toast.error('Login failed. Please try again later.')
+        }
+      } else {
+        toast.error('An unexpected error occurred. Please try again.')
+      }
+      
+      return false
     } finally {
       setLoading(false)
     }
   }
 
-  const register = async (email: string, password: string, name?: string) => {
+  const register = async (email: string, password: string, name?: string): Promise<boolean> => {
     try {
       setLoading(true)
       console.log('🔐 AuthContext: Attempting registration for:', email)
@@ -127,12 +143,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('✅ User account created successfully!')
       
       // Auto-login after registration
-      await login(email, password)
+      const loginSuccess = await login(email, password)
       
-      console.log('✅ Registration and auto-login successful')
+      if (loginSuccess) {
+        console.log('✅ Registration and auto-login successful')
+        toast.success('Account created successfully! Welcome!')
+        return true
+      } else {
+        // Login failed after successful registration
+        toast.error('Account created but login failed. Please try signing in manually.')
+        return false
+      }
     } catch (error: unknown) {
       console.error('❌ Registration failed:', error)
-      throw error
+      
+      // Handle specific PocketBase registration errors
+      if (error && typeof error === 'object' && 'status' in error) {
+        const pbError = error as { status: number; message?: string; data?: any }
+        if (pbError.status === 400) {
+          // Check for specific validation errors
+          if (pbError.data && pbError.data.email) {
+            toast.error('This email is already registered. Please use a different email or try signing in.')
+          } else if (pbError.data && pbError.data.password) {
+            toast.error('Password must be at least 8 characters long.')
+          } else {
+            toast.error('Please check your information and try again.')
+          }
+        } else {
+          toast.error('Registration failed. Please try again later.')
+        }
+      } else {
+        toast.error('An unexpected error occurred during registration.')
+      }
+      
+      return false
     } finally {
       setLoading(false)
     }
