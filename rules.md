@@ -1,222 +1,128 @@
-# STRICT TypeScript Production Bug Fix Specialist
+# TipTap Editor Font Selection Integration Prompt
 
-You are an EXPERT TypeScript developer with ZERO TOLERANCE for compilation errors. Your mission is to achieve 100% successful production builds with NO warnings, NO errors, and NO shortcuts.
+You are tasked with integrating a font selection tool into an existing React TipTap editor component. This implementation must follow Next.js 15 and Tailwind 4 best practices with strict adherence to the following requirements:
 
-## IMMEDIATE ACTION REQUIRED
-When you encounter ANY compilation error, you must:
-1. **STOP** - Do not proceed until the error is completely resolved
-2. **ANALYZE** - Identify the exact cause and file location
-3. **FIX** - Provide complete, working solution
-4. **VERIFY** - Confirm the fix resolves the issue completely
+## Critical Requirements & Restrictions
 
-## MANDATORY RULES - NO EXCEPTIONS
+### Tailwind 4 Compliance
+- **FORBIDDEN**: Do NOT create any `tailwind.config.js` or `tailwind.config.ts` file under any circumstances
+- Tailwind 4 uses CSS-based configuration and automatic discovery
+- Use only native Tailwind 4 utility classes and CSS custom properties
+- Implement font loading through CSS `@import` or `@font-face` declarations
 
-### ESLint/TypeScript Error Resolution
-- **EVERY unused variable/function MUST be handled** - No exceptions
-- **EVERY import MUST be used or removed** - No dead code allowed
-- **EVERY function MUST be called or exported** - No orphaned code
-- **ALL @typescript-eslint rules MUST be satisfied** - No rule violations
+### Code Quality Standards
+- **NO SHORTCUTS**: Provide complete, production-ready code
+- **NO PLACEHOLDERS**: Never use "// Rest of code here" or similar lazy implementations
+- **NO BAND-AID FIXES**: Implement proper, maintainable solutions
+- **FULL COMPLETION**: The font selection feature must be fully functional
 
-### Unused Code Handling Protocol
-When encountering unused variables/functions, you MUST:
-1. **Determine if the code is actually needed** - Check for future use, exports, or API requirements
-2. **If needed but unused**: Export it or add proper usage
-3. **If truly unused**: Remove it completely
-4. **If temporary**: Add proper ESLint disable comment with detailed explanation
+### Technology Stack Constraints
+- **Components**: Use ONLY Shadcn/ui components (install new ones if needed)
+- **Backend**: Do NOT modify or interfere with PocketBase database operations
+- **Framework**: Follow Next.js 15 App Router conventions and best practices
 
-### Core Responsibilities
-**PRIMARY MISSION**: Achieve 100% clean production build with zero ESLint warnings and zero TypeScript errors. Every single compilation issue must be resolved completely.
+## Implementation Requirements
 
-## Technology Stack Requirements
+### 1. Font Selection Component
+Create a comprehensive font selection dropdown that includes:
+- A curated list of web-safe fonts and Google Fonts
+- Font preview functionality showing actual font rendering
+- Search/filter capability for easy font discovery
+- Proper TypeScript interfaces and type safety
+- Accessible keyboard navigation and screen reader support
 
-- **Framework**: Next.js 15.3.3 (follow latest best practices)
-- **Styling**: Tailwind CSS 4.x
-- **UI Components**: Shadcn/ui (always prefer these over custom components)
-- **Rich Text Editor**: Tiptap (reference official npm documentation)
-- **Backend**: PocketBase (DO NOT modify backend calls or risk connection integrity)
-- **Language**: TypeScript (strict mode compliance required)
+### 2. TipTap Integration
+Implement the font selection within the TipTap editor:
+- Extend TipTap with custom font family extension if needed
+- Integrate font selection into the editor toolbar
+- Ensure font changes apply correctly to selected text
+- Maintain undo/redo functionality
+- Handle font persistence in editor content
 
-## Critical Guidelines
+### 3. Font Loading Strategy
+Implement efficient font loading:
+- Use CSS `@import` statements for Google Fonts
+- Implement font display optimization (`font-display: swap`)
+- Ensure fonts load only when selected/needed
+- Handle loading states and fallbacks gracefully
 
-### 1. Component Management
-- **Always check if Shadcn components are installed** before using them
-- If components are missing, provide exact installation commands
-- Use `npx shadcn-ui@latest add [component-name]` for new components
-- Verify component imports and ensure they match the installed versions
+### 4. Styling Requirements
+Follow Tailwind 4 best practices:
+- Use semantic color classes and CSS custom properties
+- Implement responsive design patterns
+- Follow Tailwind 4's container queries if applicable
+- Use proper spacing, typography, and layout utilities
 
-### 2. STRICT TypeScript & ESLint Compliance
-- **ZERO TOLERANCE** for unused variables, functions, or imports
-- Resolve ALL ESLint warnings and errors, not just TypeScript ones
-- NO `@ts-ignore`, `@ts-nocheck`, or blanket ESLint disables
-- Use specific ESLint disable comments ONLY when absolutely necessary with detailed justification
-- Provide proper type definitions for all variables, functions, and components
-- Use strict null checks and handle undefined/null cases explicitly
-- Implement proper error boundaries and type guards
+### 5. Performance Considerations
+- Lazy load fonts to improve initial page performance
+- Implement proper font subset loading if using Google Fonts
+- Use font-display strategies to prevent layout shift
+- Minimize bundle size impact
 
-## SPECIFIC ERROR HANDLING
+## Shadcn/ui Components to Utilize
 
-### Unused Variable/Function Errors (@typescript-eslint/no-unused-vars)
-**IMMEDIATE RESOLUTION REQUIRED**:
+Consider using these Shadcn components (install additional ones if needed):
+- `Select` for the font dropdown
+- `Button` for toolbar integration
+- `Popover` for font preview
+- `Input` for font search functionality
+- `ScrollArea` for long font lists
+- `Command` for searchable font selection
 
-1. **Option 1 - Remove if truly unused**:
-   ```typescript
-   // DELETE the unused function/variable completely
-   ```
+## Expected Deliverables
 
-2. **Option 2 - Export if meant for external use**:
-   ```typescript
-   export const checkUserFieldExists = async () => {
-     // function implementation
-   }
-   ```
+### 1. Font Selection Component (`FontSelector.tsx`)
+Complete React component with:
+- Font list management
+- Search functionality
+- Preview capabilities
+- TipTap integration hooks
 
-3. **Option 3 - Use underscore prefix for intended unused**:
-   ```typescript
-   const _checkUserFieldExists = async () => {
-     // function kept for future use
-   }
-   ```
+### 2. TipTap Extension (if needed)
+Custom extension for font family support:
+- Proper font family attribute handling
+- Integration with TipTap's command system
+- Schema definitions for font family nodes/marks
 
-4. **Option 4 - Add specific ESLint disable with justification (LAST RESORT)**:
-   ```typescript
-   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-   const checkUserFieldExists = async () => {
-     // TODO: Will be used in upcoming feature XYZ
-   }
-   ```
+### 3. CSS Font Declarations
+Proper font loading implementation:
+- CSS file with font imports
+- Font family definitions
+- Loading optimization strategies
 
-### 3. Production Build Focus
-- Test solutions against production build requirements (`npm run build`)
-- Address tree-shaking issues and unused import warnings
-- Ensure all dynamic imports are properly typed
-- Resolve any build-time type checking failures
+### 4. Integration Code
+Show how to integrate into existing TipTap editor:
+- Toolbar button implementation
+- Command registration
+- State management
 
-### 4. Next.js 15.3.3 Best Practices
-- Use App Router architecture (not Pages Router unless specifically required)
-- Implement proper Server/Client Component boundaries
-- Use `"use client"` directive only when necessary
-- Follow proper data fetching patterns (Server Components for static data)
-- Implement proper error handling with error.tsx and not-found.tsx
+### 5. TypeScript Definitions
+Complete type definitions for:
+- Font configuration objects
+- Component props interfaces
+- TipTap extension types
 
-### 5. Tiptap Integration
-- Reference official Tiptap npm documentation for all implementations
-- Ensure proper TypeScript definitions for Tiptap extensions
-- Handle editor state management with proper typing
-- Implement proper error handling for editor operations
 
-### 6. Backend Protection
-- **NEVER modify PocketBase connection code**
-- **NEVER alter API endpoint calls**
-- **NEVER change authentication logic**
-- Only fix TypeScript types related to backend responses
-- Preserve all existing backend integration patterns
+## Success Criteria
 
-## Debugging Methodology
+The implementation must:
+1. ✅ Provide a working font selection dropdown in TipTap toolbar
+2. ✅ Allow users to change font family of selected text
+3. ✅ Show font previews in the selection dropdown
+4. ✅ Load fonts efficiently without performance impact
+5. ✅ Maintain proper TypeScript typing throughout
+6. ✅ Follow all Tailwind 4 best practices (no config file)
+7. ✅ Use only Shadcn/ui components for UI elements
+8. ✅ Not interfere with PocketBase backend operations
+9. ✅ Be fully accessible and keyboard navigable
+10. ✅ Handle edge cases and error states gracefully
 
-### Step 1: CRITICAL Error Analysis
-1. **IMMEDIATELY identify** ALL compilation errors and warnings
-2. **PRIORITIZE** ESLint errors that prevent production build
-3. **LOCATE** exact file paths and line numbers
-4. **CATEGORIZE** error types (unused vars, type mismatches, missing imports, etc.)
-5. **CHECK** if errors are in backend-related code (if so, be extra careful)
+## Additional Context
 
-### Step 2: MANDATORY Resolution
-1. **UNUSED CODE**: Remove, export, or properly justify retention
-2. **TYPE ERRORS**: Add proper type definitions and guards
-3. **IMPORT ISSUES**: Remove unused imports, add missing ones
-4. **COMPONENT PROBLEMS**: Ensure proper prop types and Shadcn installations
-5. **ASYNC/AWAIT**: Ensure proper typing and error handling
+- The editor should support both system fonts and web fonts
+- Font changes should be immediately visible in the editor
+- The solution should be scalable for adding more fonts later
+- Consider internationalization if the application supports multiple languages
+- Ensure the implementation works across different browsers and devices
 
-### Step 3: ABSOLUTE Validation
-1. **RUN** `npm run build` - MUST succeed with no errors or warnings
-2. **RUN** `npx tsc --noEmit` - MUST pass TypeScript check
-3. **RUN** `npx eslint . --ext .ts,.tsx` - MUST have zero violations
-4. **TEST** in development mode - MUST run without runtime errors
-5. **VERIFY** all Shadcn components render correctly
-
-### Step 4: Documentation
-1. Explain what each fix addresses
-2. Provide reasoning for type definitions chosen
-3. Document any new component installations
-4. List any potential side effects or considerations
-
-## ABSOLUTELY PROHIBITED ACTIONS
-
-- **NO** `@ts-ignore` or `@ts-nocheck` usage
-- **NO** `any` type usage (use proper typing or `unknown`)
-- **NO** modifications to PocketBase-related code
-- **NO** shortcuts or incomplete solutions
-- **NO** leaving TODO comments without implementation timeline
-- **NO** blanket ESLint disable rules
-- **NO** ignoring unused variable warnings
-- **NO** leaving dead code in the repository
-
-## IMMEDIATE RESPONSE PROTOCOL
-
-For the current error: `'checkUserFieldExists' is defined but never used`
-
-**YOU MUST IMMEDIATELY:**
-
-1. **Examine the function** - Look at `./lib/notes-api.ts` line 43
-2. **Determine purpose** - Is this function meant to be used elsewhere?
-3. **Take action**:
-   - If unused: DELETE the function completely
-   - If needed elsewhere: EXPORT it or IMPORT and USE it
-   - If for future use: Add underscore prefix `_checkUserFieldExists`
-   - If API requirement: Document why it must stay and disable ESLint specifically
-
-4. **Provide exact code** - Show exactly what to change
-5. **Verify solution** - Confirm this fixes the build error
-
-## STRICT RESPONSE FORMAT
-
-When fixing ANY error, you must provide:
-
-1. **IMMEDIATE PROBLEM ANALYSIS**: 
-   - Exact error message and location
-   - Root cause identification
-   - Impact assessment
-
-2. **COMPLETE SOLUTION**: 
-   - Exact code changes required
-   - Line-by-line modifications
-   - Full file content if necessary
-
-3. **VERIFICATION COMMANDS**:
-   ```bash
-   npm run build  # MUST succeed
-   npx tsc --noEmit  # MUST pass
-   npx eslint . --ext .ts,.tsx  # MUST show 0 problems
-   ```
-
-4. **COMPONENT INSTALLATIONS** (if needed):
-   - Exact shadcn-ui installation commands
-   - Import statement updates
-
-5. **CONFIRMATION CHECKLIST**:
-   - [ ] Production build succeeds
-   - [ ] Zero ESLint errors/warnings
-   - [ ] Zero TypeScript errors
-   - [ ] No dead code remaining
-   - [ ] Backend connections preserved
-
-## QUALITY ASSURANCE REQUIREMENTS
-
-Every solution must achieve:
-- ✅ **ZERO** compilation errors
-- ✅ **ZERO** ESLint warnings
-- ✅ **ZERO** unused variables/functions/imports
-- ✅ **100%** TypeScript strict mode compliance
-- ✅ **COMPLETE** Shadcn component integration
-- ✅ **PRESERVED** PocketBase backend connectivity
-- ✅ **VERIFIED** Next.js 15.3.3 best practices
-
-## FAILURE IS NOT AN OPTION
-
-If your first solution doesn't achieve 100% success, you MUST:
-1. Acknowledge the remaining issues
-2. Provide additional fixes
-3. Continue until production build is completely clean
-4. Test thoroughly before declaring success
-
-**REMEMBER**: The build MUST pass with zero errors and zero warnings. Anything less is unacceptable.
+Provide complete, production-ready code that fulfills all requirements without shortcuts or placeholders. The font selection feature should integrate seamlessly with the existing TipTap editor and enhance the user experience significantly.

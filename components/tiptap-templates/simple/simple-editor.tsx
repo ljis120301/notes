@@ -14,6 +14,8 @@ import { Highlight } from "@tiptap/extension-highlight"
 import { Subscript } from "@tiptap/extension-subscript"
 import { Superscript } from "@tiptap/extension-superscript"
 import { Underline } from "@tiptap/extension-underline"
+import { TextStyle } from "@tiptap/extension-text-style"
+import { FontFamily } from "@tiptap/extension-font-family"
 
 // --- Custom Extensions ---
 import { Link } from "@/components/tiptap-extension/link-extension"
@@ -38,6 +40,7 @@ import "@/components/tiptap-node/paragraph-node/paragraph-node.scss"
 
 // --- Tiptap UI ---
 import { HeadingDropdownMenu } from "@/components/tiptap-ui/heading-dropdown-menu"
+import { FontFamilyDropdownMenu } from "@/components/tiptap-ui/font-family-dropdown-menu/font-family-dropdown-menu"
 import { ImageUploadButton } from "@/components/tiptap-ui/image-upload-button"
 import { ListDropdownMenu } from "@/components/tiptap-ui/list-dropdown-menu"
 import { BlockQuoteButton } from "@/components/tiptap-ui/blockquote-button"
@@ -66,8 +69,6 @@ import { useMobile } from "@/hooks/use-mobile"
 import { useWindowSize } from "@/hooks/use-window-size"
 import { useCursorVisibility } from "@/hooks/use-cursor-visibility"
 
-// --- Components ---
-
 // --- Lib ---
 import { handleImageUpload, MAX_FILE_SIZE } from "@/lib/tiptap-utils"
 
@@ -93,35 +94,76 @@ interface SimpleEditorProps {
   noteTitle?: string
 }
 
-const MainToolbarContent = ({
-  onHighlighterClick,
-  onLinkClick,
-  isMobile,
-}: {
-  onHighlighterClick: () => void
-  onLinkClick: () => void
-  isMobile: boolean
-}) => {
+// Performance monitoring - only in development
+const usePerformanceMonitor = () => {
+  const renderCountRef = React.useRef(0)
+  
+  if (process.env.NODE_ENV === 'development') {
+    React.useEffect(() => {
+      renderCountRef.current++
+      console.log(`SimpleEditor render count: ${renderCountRef.current}`)
+    })
+  }
+
+  return renderCountRef.current
+}
+
+// Static toolbar components - completely isolated from editor state
+const StaticMainToolbarContent = React.memo(() => {
+  const isMobile = useMobile()
+  
+  const [mobileView, setMobileView] = React.useState<"main" | "highlighter" | "link">("main")
+  
+  const handleHighlighterClick = React.useCallback(() => setMobileView("highlighter"), [])
+  const handleLinkClick = React.useCallback(() => setMobileView("link"), [])
+  const handleBack = React.useCallback(() => setMobileView("main"), [])
+
+  if (mobileView === "highlighter") {
+    return (
+      <>
+        <ToolbarGroup>
+          <Button onClick={handleBack} data-style="ghost">
+            <ArrowLeftIcon className="tiptap-button-icon" />
+            <HighlighterIcon className="tiptap-button-icon" />
+          </Button>
+        </ToolbarGroup>
+        <ToolbarSeparator />
+        <ColorHighlightPopoverContent />
+      </>
+    )
+  }
+
+  if (mobileView === "link") {
+    return (
+      <>
+        <ToolbarGroup>
+          <Button onClick={handleBack} data-style="ghost">
+            <ArrowLeftIcon className="tiptap-button-icon" />
+            <LinkIcon className="tiptap-button-icon" />
+          </Button>
+        </ToolbarGroup>
+        <ToolbarSeparator />
+        <LinkContent />
+      </>
+    )
+  }
+
   return (
     <>
       <Spacer />
-
       <ToolbarGroup>
         <UndoRedoButton action="undo" />
         <UndoRedoButton action="redo" />
       </ToolbarGroup>
-
       <ToolbarSeparator />
-
       <ToolbarGroup>
         <HeadingDropdownMenu levels={[1, 2, 3, 4]} />
+        <FontFamilyDropdownMenu />
         <ListDropdownMenu types={["bulletList", "orderedList", "taskList"]} />
         <BlockQuoteButton />
         <CodeBlockButton />
       </ToolbarGroup>
-
       <ToolbarSeparator />
-
       <ToolbarGroup>
         <MarkButton type="bold" />
         <MarkButton type="italic" />
@@ -131,209 +173,199 @@ const MainToolbarContent = ({
         {!isMobile ? (
           <ColorHighlightPopover />
         ) : (
-          <ColorHighlightPopoverButton onClick={onHighlighterClick} />
+          <ColorHighlightPopoverButton onClick={handleHighlighterClick} />
         )}
-        {!isMobile ? <LinkPopover /> : <LinkButton onClick={onLinkClick} />}
+        {!isMobile ? <LinkPopover /> : <LinkButton onClick={handleLinkClick} />}
       </ToolbarGroup>
-
       <ToolbarSeparator />
-
       <ToolbarGroup>
         <MarkButton type="superscript" />
         <MarkButton type="subscript" />
       </ToolbarGroup>
-
       <ToolbarSeparator />
-
       <ToolbarGroup>
         <TextAlignButton align="left" />
         <TextAlignButton align="center" />
         <TextAlignButton align="right" />
         <TextAlignButton align="justify" />
       </ToolbarGroup>
-
       <ToolbarSeparator />
-
       <ToolbarGroup>
         <ImageUploadButton text="Add" />
       </ToolbarGroup>
-
       <Spacer />
-
       {isMobile && <ToolbarSeparator />}
-
     </>
   )
-}
+})
 
-const MobileToolbarContent = ({
-  type,
-  onBack,
-}: {
-  type: "highlighter" | "link"
-  onBack: () => void
-}) => (
-  <>
-    <ToolbarGroup>
-      <Button data-style="ghost" onClick={onBack}>
-        <ArrowLeftIcon className="tiptap-button-icon" />
-        {type === "highlighter" ? (
-          <HighlighterIcon className="tiptap-button-icon" />
-        ) : (
-          <LinkIcon className="tiptap-button-icon" />
-        )}
-      </Button>
-    </ToolbarGroup>
+StaticMainToolbarContent.displayName = "StaticMainToolbarContent"
 
-    <ToolbarSeparator />
-
-    {type === "highlighter" ? (
-      <ColorHighlightPopoverContent />
-    ) : (
-      <LinkContent />
-    )}
-  </>
-)
-
-export function SimpleEditor({ 
+export const SimpleEditor = React.memo(({ 
   initialContent = '', 
   onContentChange,
-  noteId,
-  noteTitle 
-}: SimpleEditorProps = {}) {
-  console.log('🏁 SimpleEditor component initialized with:', {
-    initialContentLength: initialContent.length,
-    initialContentPreview: initialContent.substring(0, 100),
-    hasOnContentChange: !!onContentChange,
-    noteId,
-    noteTitle
-  })
-  
+  noteId
+}: SimpleEditorProps) => {
   const isMobile = useMobile()
   const windowSize = useWindowSize()
-  const [mobileView, setMobileView] = React.useState<
-    "main" | "highlighter" | "link"
-  >("main")
   const toolbarRef = React.useRef<HTMLDivElement>(null)
+  
+  // Performance monitoring
+  const renderCount = usePerformanceMonitor()
+
+  // Track current note ID to prevent content resets during typing
+  const currentNoteIdRef = React.useRef(noteId)
+
+  // Content buffering for performance - heavily debounced
+  const contentBufferRef = React.useRef(initialContent)
+  const debounceTimerRef = React.useRef<NodeJS.Timeout | undefined>(undefined)
+  const lastEmittedContentRef = React.useRef(initialContent)
+
+  // Aggressive debouncing - balance between performance and sync speed
+  const debouncedContentChange = React.useCallback((content: string) => {
+    contentBufferRef.current = content
+    
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+    }
+    
+    // 1.5 second delay - fast enough for good UX, slow enough for performance
+    debounceTimerRef.current = setTimeout(() => {
+      if (onContentChange && contentBufferRef.current !== lastEmittedContentRef.current) {
+        lastEmittedContentRef.current = contentBufferRef.current
+        onContentChange(contentBufferRef.current)
+      }
+    }, 1500)
+  }, [onContentChange])
+
+  // Static extensions - never recreated
+  const extensions = React.useMemo(() => [
+    StarterKit.configure({
+      history: {
+        depth: 30, // Reduce for better performance
+        newGroupDelay: 2000, // Longer grouping
+      },
+    }),
+    TextAlign.configure({ types: ["heading", "paragraph"] }),
+    Underline,
+    TaskList,
+    TaskItem.configure({ nested: true }),
+    Highlight.configure({ multicolor: true }),
+    Image.configure({
+      HTMLAttributes: { class: 'tiptap-image' },
+      allowBase64: true,
+      inline: false,
+    }),
+    Typography.configure({
+      // Disable performance-heavy transforms that exist
+      openDoubleQuote: false,
+      closeDoubleQuote: false,
+      openSingleQuote: false,
+      closeSingleQuote: false,
+      leftArrow: false,
+      rightArrow: false,
+      copyright: false,
+      trademark: false,
+      servicemark: false,
+      registeredTrademark: false,
+      plusMinus: false,
+      notEqual: false,
+      laquo: false,
+      raquo: false,
+      multiplication: false,
+      superscriptTwo: false,
+      superscriptThree: false,
+    }),
+    Superscript,
+    Subscript,
+    TextStyle,
+    FontFamily.configure({ types: ['textStyle'] }),
+    Selection,
+    ImageUploadNode.configure({
+      accept: "image/*",
+      maxSize: MAX_FILE_SIZE,
+      limit: 3,
+      upload: handleImageUpload,
+      onError: (error: unknown) => console.error("Upload failed:", error),
+    }),
+    TrailingNode,
+    Link.configure({ openOnClick: false }),
+  ], [])
 
   const editor = useEditor({
     immediatelyRender: false,
+    shouldRerenderOnTransaction: false,
     editorProps: {
       attributes: {
         autocomplete: "off",
         autocorrect: "off",
         autocapitalize: "off",
+        spellcheck: "false",
         "aria-label": "Main content area, start typing to enter text.",
       },
+      // Disable all unnecessary DOM event handling
+      handleDOMEvents: {
+        // Block unnecessary event processing
+        input: () => false,
+        keydown: () => false,
+        keyup: () => false,
+        compositionstart: () => false,
+        compositionend: () => false,
+      },
     },
-    extensions: [
-      StarterKit,
-      TextAlign.configure({ types: ["heading", "paragraph"] }),
-      Underline,
-      TaskList,
-      TaskItem.configure({ nested: true }),
-      Highlight.configure({ multicolor: true }),
-      Image.configure({
-        HTMLAttributes: {
-          class: 'tiptap-image',
-        },
-        allowBase64: true,
-        inline: false,
-      }),
-      Typography,
-      Superscript,
-      Subscript,
-
-      Selection,
-      ImageUploadNode.configure({
-        accept: "image/*",
-        maxSize: MAX_FILE_SIZE,
-        limit: 3,
-        upload: handleImageUpload,
-        onError: (error: unknown) => console.error("Upload failed:", error),
-      }),
-      TrailingNode,
-      Link.configure({ openOnClick: false }),
-    ],
-    content: initialContent || '',
+    extensions,
+    content: initialContent,
     onUpdate: ({ editor }) => {
-      console.log('🔥 TipTap onUpdate fired! Editor exists:', !!editor)
-      const content = editor.getHTML()
-      console.log('🔥 TipTap onUpdate content length:', content.length, 'onContentChange exists:', !!onContentChange)
-      console.log('🔥 TipTap onUpdate content preview:', content.substring(0, 150))
-      console.log('🔥 TipTap onUpdate: Current timestamp:', Date.now())
-      
-      if (onContentChange) {
-        console.log('📝 SimpleEditor: Content changed, calling onContentChange with length:', content.length)
-        console.log('📝 SimpleEditor: Content preview being passed to onContentChange:', content.substring(0, 100))
-        onContentChange(content)
-        console.log('📝 SimpleEditor: onContentChange callback completed')
-      } else {
-        console.warn('⚠️ SimpleEditor: onContentChange callback is missing!')
-      }
+      // Ultra-lightweight content change - no React state updates
+      debouncedContentChange(editor.getHTML())
     },
-    onCreate: ({ editor }) => {
-      console.log('🚀 TipTap editor created successfully, content:', editor.getHTML().substring(0, 100))
-    },
-    onDestroy: () => {
-      console.log('💥 TipTap editor destroyed')
-    }
   })
 
-  // Update editor content when initialContent changes - but be more careful about when to update
+  // Only update editor content when switching notes (noteId changes), not on content updates
   React.useEffect(() => {
-    console.log('📂 SimpleEditor: Effect triggered - checking content update', {
-      hasEditor: !!editor,
-      initialContentLength: initialContent?.length || 0,
-      editorIsEmpty: editor?.isEmpty,
-      editorCurrentLength: editor?.getHTML()?.length || 0
-    })
-    
-    if (editor && initialContent !== undefined) {
-      // Don't update if we're just switching from empty to empty
-      if (initialContent === '' && editor.isEmpty) {
-        console.log('📂 SimpleEditor: Skipping update - both initial and current content are empty')
-        return
-      }
+    if (editor && noteId !== currentNoteIdRef.current) {
+      // Note switched - safe to update content
+      currentNoteIdRef.current = noteId
       
-      const currentContent = editor.getHTML()
-      console.log('📂 SimpleEditor: Checking if content should update:', {
-        initialContentLength: initialContent.length,
-        currentContentLength: currentContent.length,
-        initialContentPreview: initialContent.substring(0, 50),
-        currentContentPreview: currentContent.substring(0, 50)
-      })
-      
-      // More robust comparison - if initial content is different from current content
-      if (initialContent !== currentContent) {
-        console.log('🔄 SimpleEditor: Setting new content in editor')
-        editor.commands.setContent(initialContent, false) // false = don't emit update event
-        
-        // Verify the content was actually set
-        setTimeout(() => {
-          const verifyContent = editor.getHTML()
-          console.log('🔍 SimpleEditor: Content verification after setContent:', {
-            expectedLength: initialContent.length,
-            actualLength: verifyContent.length,
-            matches: initialContent === verifyContent
-          })
-        }, 100)
-      } else {
-        console.log('📂 SimpleEditor: Content already matches, no update needed')
+      if (initialContent !== contentBufferRef.current) {
+        editor.commands.setContent(initialContent, false)
+        contentBufferRef.current = initialContent
+        lastEmittedContentRef.current = initialContent
       }
     }
-  }, [editor, initialContent])
+  }, [editor, noteId, initialContent]) // Watch noteId changes for note switching
 
   const bodyRect = useCursorVisibility({
     editor,
     overlayHeight: toolbarRef.current?.getBoundingClientRect().height ?? 0,
   })
 
+  // Cleanup on unmount
   React.useEffect(() => {
-    if (!isMobile && mobileView !== "main") {
-      setMobileView("main")
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+        // Emit final content on unmount
+        if (onContentChange && contentBufferRef.current !== lastEmittedContentRef.current) {
+          onContentChange(contentBufferRef.current)
+        }
+      }
     }
-  }, [isMobile, mobileView])
+  }, [onContentChange])
+
+  if (!editor) {
+    return (
+      <div className="simple-editor-wrapper">
+        <div className="content-wrapper">
+          <div className="simple-editor-content">
+            <div className="flex items-center justify-center h-32 text-muted-foreground">
+              Loading editor...
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="simple-editor-wrapper">
@@ -348,18 +380,7 @@ export function SimpleEditor({
               : {}
           }
         >
-          {mobileView === "main" ? (
-            <MainToolbarContent
-              onHighlighterClick={() => setMobileView("highlighter")}
-              onLinkClick={() => setMobileView("link")}
-              isMobile={isMobile}
-            />
-          ) : (
-            <MobileToolbarContent
-              type={mobileView === "highlighter" ? "highlighter" : "link"}
-              onBack={() => setMobileView("main")}
-            />
-          )}
+          <StaticMainToolbarContent />
         </Toolbar>
 
         <div className="content-wrapper">
@@ -372,4 +393,11 @@ export function SimpleEditor({
       </EditorContext.Provider>
     </div>
   )
-}
+}, (prevProps, nextProps) => {
+  // Smart memo: Allow re-renders when noteId changes (note switching)
+  // But prevent re-renders during normal typing (when only internal state changes)
+  return prevProps.noteId === nextProps.noteId && 
+         prevProps.initialContent === nextProps.initialContent
+})
+
+SimpleEditor.displayName = "SimpleEditor"

@@ -1,5 +1,8 @@
-/* Google Fonts import - loads globally to avoid Next.js warning */
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+/* Optimized Google Fonts import - critical fonts only, optimized loading */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap&subset=latin');
+
+/* Additional fonts loaded on-demand to reduce initial bundle size */
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Roboto:wght@400;500;700&family=Playfair+Display:wght@400;600;700&family=Source+Sans+Pro:wght@400;600;700&family=Lora:wght@400;600;700&family=Poppins:wght@400;500;600;700&family=Merriweather:wght@400;700&display=swap&subset=latin');
 
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -14,6 +17,16 @@
   --color-foreground: var(--foreground);
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  --font-serif: "Merriweather", "Times New Roman", serif;
+  --font-inter: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-open-sans: "Open Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-roboto: "Roboto", ui-sans-serif, system-ui, sans-serif;
+  --font-playfair: "Playfair Display", Georgia, serif;
+  --font-source-sans: "Source Sans Pro", ui-sans-serif, system-ui, sans-serif;
+  --font-lora: "Lora", Georgia, serif;
+  --font-poppins: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --font-merriweather: "Merriweather", "Times New Roman", serif;
+  --font-dm-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -293,12 +306,78 @@
   .simple-editor-wrapper .tiptap.ProseMirror {
     font-family: "DM Sans", sans-serif;
     color: var(--tt-theme-text);
+    
+    /* Performance optimizations for typing responsiveness */
+    transform: translateZ(0); /* Force hardware acceleration */
+    will-change: contents; /* Optimize for content changes */
+    contain: layout style paint; /* More aggressive containment for better performance */
+    backface-visibility: hidden; /* Prevent 3D transform issues */
+    
+    /* Font rendering optimizations */
+    text-rendering: optimizeSpeed; /* Prioritize speed over quality */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    
+    /* Disable features that can cause lag */
+    spellcheck: false; /* Major cause of typing lag */
+    autocomplete: off;
+    autocorrect: off;
+    autocapitalize: off;
+    
+    /* Optimize for large content */
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    
+    /* Additional performance optimizations */
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    user-select: text;
+    
+    /* Reduce reflow/repaint triggers */
+    box-sizing: border-box;
+    outline: none;
+    
+    /* Optimize for font family changes */
+    font-display: swap; /* Faster font loading */
+  }
+
+  /* Performance optimization for font family changes */
+  .simple-editor-wrapper .tiptap.ProseMirror * {
+    /* Prevent font family inheritance issues that cause reflows */
+    font-feature-settings: inherit;
+    font-variation-settings: inherit;
+  }
+
+  /* Optimize toolbar rendering */
+  .simple-editor-wrapper .toolbar {
+    /* Use GPU acceleration for toolbar */
+    transform: translateZ(0);
+    will-change: transform;
+    contain: layout style;
+  }
+
+  /* Optimize dropdown menus to prevent layout thrashing */
+  .simple-editor-wrapper .dropdown-menu {
+    /* Use GPU layers for better performance */
+    transform: translateZ(0);
+    will-change: opacity, transform;
+    contain: layout style paint;
   }
 
   .simple-editor-wrapper .content-wrapper {
     height: calc(100% - var(--tt-toolbar-height));
     overflow-y: auto;
     background-color: var(--tt-bg-color);
+    
+    /* Performance optimizations */
+    contain: layout style paint; /* Aggressive containment */
+    transform: translateZ(0); /* Hardware acceleration */
+    will-change: scroll-position; /* Optimize for scrolling */
+    
+    /* Optimize scrolling performance */
+    scroll-behavior: auto; /* Disable smooth scrolling for better performance */
+    overscroll-behavior: contain; /* Prevent scroll chaining */
   }
 
   .simple-editor-wrapper .content-wrapper::-webkit-scrollbar {
@@ -498,6 +577,18 @@
   .tiptap-button-icon {
     display: inline-block;
     vertical-align: middle;
+  }
+  
+  .tiptap-button-text {
+    display: inline-block;
+    margin-left: 0.5rem;
+  }
+  
+  .tiptap-button-dropdown-small {
+    display: inline-block;
+    margin-left: 0.25rem;
+    width: 1rem;
+    height: 1rem;
   }
   
   .ProseMirror {

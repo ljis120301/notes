@@ -163,7 +163,7 @@ function useFileUpload(options: UploadOptions) {
   }
 }
 
-const CloudUploadIcon: React.FC = () => (
+const CloudUploadIcon: React.FC = React.memo(() => (
   <svg
     width="24"
     height="24"
@@ -181,9 +181,11 @@ const CloudUploadIcon: React.FC = () => (
       fill="currentColor"
     />
   </svg>
-)
+))
 
-const FileIcon: React.FC = () => (
+CloudUploadIcon.displayName = "CloudUploadIcon"
+
+const FileIcon: React.FC = React.memo(() => (
   <svg
     width="43"
     height="57"
@@ -200,9 +202,11 @@ const FileIcon: React.FC = () => (
       strokeWidth="1.5"
     />
   </svg>
-)
+))
 
-const FileCornerIcon: React.FC = () => (
+FileIcon.displayName = "FileIcon"
+
+const FileCornerIcon: React.FC = React.memo(() => (
   <svg
     width="10"
     height="10"
@@ -216,37 +220,35 @@ const FileCornerIcon: React.FC = () => (
       fill="currentColor"
     />
   </svg>
-)
+))
 
 interface ImageUploadDragAreaProps {
   onFile: (files: File[]) => void
   children?: React.ReactNode
 }
 
-const ImageUploadDragArea: React.FC<ImageUploadDragAreaProps> = ({
+const ImageUploadDragArea: React.FC<ImageUploadDragAreaProps> = React.memo(({
   onFile,
   children,
 }) => {
   const [dragover, setDragover] = React.useState(false)
 
-  const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    setDragover(false)
+  const onDrop = React.useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
-    e.stopPropagation()
-
+    setDragover(false)
     const files = Array.from(e.dataTransfer.files)
     onFile(files)
-  }
+  }, [onFile])
 
-  const onDragover = (e: React.DragEvent<HTMLDivElement>) => {
+  const onDragover = React.useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     setDragover(true)
-  }
+  }, [])
 
-  const onDragleave = (e: React.DragEvent<HTMLDivElement>) => {
+  const onDragleave = React.useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     setDragover(false)
-  }
+  }, [])
 
   return (
     <div
@@ -258,7 +260,9 @@ const ImageUploadDragArea: React.FC<ImageUploadDragAreaProps> = ({
       {children}
     </div>
   )
-}
+})
+
+ImageUploadDragArea.displayName = "ImageUploadDragArea"
 
 interface ImageUploadPreviewProps {
   file: File
@@ -267,19 +271,24 @@ interface ImageUploadPreviewProps {
   onRemove: () => void
 }
 
-const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
+const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = React.memo(({
   file,
   progress,
   status,
   onRemove,
 }) => {
-  const formatFileSize = (bytes: number) => {
+  const formatFileSize = React.useCallback((bytes: number) => {
     if (bytes === 0) return "0 Bytes"
     const k = 1024
     const sizes = ["Bytes", "KB", "MB", "GB"]
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
-  }
+  }, [])
+
+  const handleRemove = React.useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    onRemove()
+  }, [onRemove])
 
   return (
     <div className="tiptap-image-upload-preview">
@@ -310,10 +319,7 @@ const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
           )}
           <button
             className="tiptap-image-upload-close-btn"
-            onClick={(e) => {
-              e.stopPropagation()
-              onRemove()
-            }}
+            onClick={handleRemove}
           >
             <CloseIcon />
           </button>
@@ -321,9 +327,11 @@ const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
       </div>
     </div>
   )
-}
+})
 
-const DropZoneContent: React.FC<{ maxSize: number }> = ({ maxSize }) => (
+ImageUploadPreview.displayName = "ImageUploadPreview"
+
+const DropZoneContent: React.FC<{ maxSize: number }> = React.memo(({ maxSize }) => (
   <>
     <div className="tiptap-image-upload-dropzone">
       <FileIcon />
@@ -342,34 +350,36 @@ const DropZoneContent: React.FC<{ maxSize: number }> = ({ maxSize }) => (
       </span>
     </div>
   </>
-)
+))
 
-export const ImageUploadNode: React.FC<NodeViewProps> = (props) => {
+DropZoneContent.displayName = "DropZoneContent"
+
+export const ImageUploadNode: React.FC<NodeViewProps> = React.memo((props) => {
   const { accept, limit, maxSize } = props.node.attrs
   const inputRef = React.useRef<HTMLInputElement>(null)
   const extension = props.extension
 
-  const uploadOptions: UploadOptions = {
+  const uploadOptions: UploadOptions = React.useMemo(() => ({
     maxSize,
     limit,
     accept,
     upload: extension.options.upload,
     onSuccess: extension.options.onSuccess,
     onError: extension.options.onError,
-  }
+  }), [maxSize, limit, accept, extension.options.upload, extension.options.onSuccess, extension.options.onError])
 
   const { fileItem, uploadFiles, clearFileItem } = useFileUpload(uploadOptions)
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) {
       extension.options.onError?.(new Error("No file selected"))
       return
     }
     handleUpload(Array.from(files))
-  }
+  }, [extension.options])
 
-  const handleUpload = async (files: File[]) => {
+  const handleUpload = React.useCallback(async (files: File[]) => {
     const url = await uploadFiles(files)
 
     if (url) {
@@ -398,14 +408,18 @@ export const ImageUploadNode: React.FC<NodeViewProps> = (props) => {
         extension.options.onSuccess?.(url)
       }
     }
-  }
+  }, [uploadFiles, props, extension.options])
 
-  const handleClick = () => {
+  const handleClick = React.useCallback(() => {
     if (inputRef.current && !fileItem) {
       inputRef.current.value = ""
       inputRef.current.click()
     }
-  }
+  }, [fileItem])
+
+  const handleInputClick = React.useCallback((e: React.MouseEvent<HTMLInputElement>) => {
+    e.stopPropagation()
+  }, [])
 
   return (
     <NodeViewWrapper
@@ -434,8 +448,10 @@ export const ImageUploadNode: React.FC<NodeViewProps> = (props) => {
         accept={accept}
         type="file"
         onChange={handleChange}
-        onClick={(e: React.MouseEvent<HTMLInputElement>) => e.stopPropagation()}
+        onClick={handleInputClick}
       />
     </NodeViewWrapper>
   )
-}
+})
+
+ImageUploadNode.displayName = "ImageUploadNode"
