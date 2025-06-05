@@ -222,6 +222,8 @@ const FileCornerIcon: React.FC = React.memo(() => (
   </svg>
 ))
 
+FileCornerIcon.displayName = "FileCornerIcon"
+
 interface ImageUploadDragAreaProps {
   onFile: (files: File[]) => void
   children?: React.ReactNode
@@ -370,15 +372,6 @@ export const ImageUploadNode: React.FC<NodeViewProps> = React.memo((props) => {
 
   const { fileItem, uploadFiles, clearFileItem } = useFileUpload(uploadOptions)
 
-  const handleChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) {
-      extension.options.onError?.(new Error("No file selected"))
-      return
-    }
-    handleUpload(Array.from(files))
-  }, [extension.options])
-
   const handleUpload = React.useCallback(async (files: File[]) => {
     const url = await uploadFiles(files)
 
@@ -409,6 +402,15 @@ export const ImageUploadNode: React.FC<NodeViewProps> = React.memo((props) => {
       }
     }
   }, [uploadFiles, props, extension.options])
+
+  const handleChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) {
+      extension.options.onError?.(new Error("No file selected"))
+      return
+    }
+    handleUpload(Array.from(files))
+  }, [extension.options, handleUpload])
 
   const handleClick = React.useCallback(() => {
     if (inputRef.current && !fileItem) {

@@ -159,7 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Handle specific PocketBase registration errors
       if (error && typeof error === 'object' && 'status' in error) {
-        const pbError = error as { status: number; message?: string; data?: any }
+        const pbError = error as { status: number; message?: string; data?: Record<string, unknown> }
         if (pbError.status === 400) {
           // Check for specific validation errors
           if (pbError.data && pbError.data.email) {

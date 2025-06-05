@@ -98,6 +98,7 @@ services:
       - GIT_TERMINAL_PROMPT=0
       - NODE_ENV=production
       - PORT=3003
+      - NEXT_PUBLIC_POCKETBASE_URL=https://pb2.whoisjason.me
     hostname: notes
     image: node:20-alpine
     labels:

@@ -93,11 +93,11 @@ export function FontFamilyDropdownMenu({
       activeLabel: activeOption?.label || "Font",
       hasActiveFont: activeFont !== "default"
     }
-  }, [editor, isOpen]) // Only recalculate when dropdown opens or editor changes
+  }, [editor]) // Only recalculate when editor changes
 
   const isDisabled = React.useMemo(() => 
     !canApplyFontFamily(editor), 
-    [editor, isOpen] // Only recalculate when dropdown opens
+    [editor] // Only recalculate when editor changes
   )
 
   const shouldShow = React.useMemo(() => {

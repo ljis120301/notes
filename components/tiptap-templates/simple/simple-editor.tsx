@@ -98,12 +98,12 @@ interface SimpleEditorProps {
 const usePerformanceMonitor = () => {
   const renderCountRef = React.useRef(0)
   
-  if (process.env.NODE_ENV === 'development') {
-    React.useEffect(() => {
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
       renderCountRef.current++
       console.log(`SimpleEditor render count: ${renderCountRef.current}`)
-    })
-  }
+    }
+  })
 
   return renderCountRef.current
 }
@@ -211,7 +211,7 @@ export const SimpleEditor = React.memo(({
   const toolbarRef = React.useRef<HTMLDivElement>(null)
   
   // Performance monitoring
-  const renderCount = usePerformanceMonitor()
+  usePerformanceMonitor()
 
   // Track current note ID to prevent content resets during typing
   const currentNoteIdRef = React.useRef(noteId)
