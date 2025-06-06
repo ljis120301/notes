@@ -158,28 +158,10 @@ export async function getNote(id: string): Promise<Note> {
 export async function updateNote(id: string, data: Partial<Note>): Promise<Note> {
   ensureAuth()
   
-  console.log('🔄 notes-api updateNote called with:', {
-    id,
-    data: {
-      title: data.title,
-      contentLength: data.content?.length || 0,
-      contentPreview: data.content?.substring(0, 100) || 'NO CONTENT'
-    }
-  })
-  
   try {
-    // First verify we can access the note
-    await getNote(id)
-    
-    // Update the note
+    // Update the note directly - no need to verify access first since we're authenticated
+    // and PocketBase will return 403/404 if we don't have access
     const record = await pb.collection(notesCollection).update(id, data)
-    
-    console.log('✅ notes-api updateNote successful, returned:', {
-      id: record.id,
-      title: record.title,
-      contentLength: record.content?.length || 0,
-      contentPreview: record.content?.substring(0, 100) || 'NO CONTENT'
-    })
     
     return record as unknown as Note
   } catch (error: unknown) {
@@ -187,7 +169,7 @@ export async function updateNote(id: string, data: Partial<Note>): Promise<Note>
       console.log('Update note request was auto-cancelled')
       throw new Error('Request cancelled')
     }
-    console.error('❌ notes-api updateNote failed:', error)
+    console.error('notes-api updateNote failed:', error)
     throw error
   }
 }
@@ -196,10 +178,7 @@ export async function deleteNote(id: string): Promise<boolean> {
   ensureAuth()
   
   try {
-    // First verify we can access the note
-    await getNote(id)
-    
-    // Delete the note
+    // Delete the note directly - PocketBase will handle access control
     await pb.collection(notesCollection).delete(id)
     return true
   } catch (error: unknown) {
@@ -272,16 +251,9 @@ export async function searchNotes(query: string): Promise<Note[]> {
 export async function pinNote(id: string): Promise<Note> {
   ensureAuth()
   
-  console.log('📌 notes-api pinNote called with:', { id })
-  
   try {
-    // First verify we can access the note
-    await getNote(id)
-    
     // Update the note to set pinned to true
     const record = await pb.collection(notesCollection).update(id, { pinned: true })
-    
-    console.log('✅ notes-api pinNote successful:', { id, pinned: true })
     
     return record as unknown as Note
   } catch (error: unknown) {
@@ -289,7 +261,7 @@ export async function pinNote(id: string): Promise<Note> {
       console.log('Pin note request was auto-cancelled')
       throw new Error('Request cancelled')
     }
-    console.error('❌ notes-api pinNote failed:', error)
+    console.error('notes-api pinNote failed:', error)
     throw error
   }
 }
@@ -298,16 +270,9 @@ export async function pinNote(id: string): Promise<Note> {
 export async function unpinNote(id: string): Promise<Note> {
   ensureAuth()
   
-  console.log('📌 notes-api unpinNote called with:', { id })
-  
   try {
-    // First verify we can access the note
-    await getNote(id)
-    
     // Update the note to set pinned to false
     const record = await pb.collection(notesCollection).update(id, { pinned: false })
-    
-    console.log('✅ notes-api unpinNote successful:', { id, pinned: false })
     
     return record as unknown as Note
   } catch (error: unknown) {
@@ -315,7 +280,7 @@ export async function unpinNote(id: string): Promise<Note> {
       console.log('Unpin note request was auto-cancelled')
       throw new Error('Request cancelled')
     }
-    console.error('❌ notes-api unpinNote failed:', error)
+    console.error('notes-api unpinNote failed:', error)
     throw error
   }
 } 

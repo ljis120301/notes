@@ -13,18 +13,24 @@ import { LogOut } from 'lucide-react'
 import { getNote } from '@/lib/notes-api'
 import NotesEditorWrapper from './notes-editor-wrapper'
 
+
 export function NotesApp() {
   const { user, logout } = useAuth()
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null)
   const sidebarRef = useRef<{ refreshNotes: () => void } | null>(null)
+  
+
+
 
   // Fetch the selected note using React Query - this will use cached data from auto-save
   const { data: selectedNote, isLoading: isLoadingNote, error: noteError } = useQuery({
     queryKey: ['note', selectedNoteId],
     queryFn: () => getNote(selectedNoteId!),
     enabled: !!selectedNoteId,
-    staleTime: 0, // Always use cached data if available
+    staleTime: 5 * 60 * 1000, // 5 minutes - cache data longer to reduce refetches
     gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    refetchOnWindowFocus: false, // Don't refetch on window focus to avoid conflicts
+    refetchOnMount: false, // Don't refetch on mount if we have cached data
   })
 
   const handleSelectNote = useCallback((note: Note) => {
@@ -42,7 +48,6 @@ export function NotesApp() {
   const handleSaveNote = useCallback((updatedNote: Note) => {
     // The cache is already updated by auto-save, no need to do anything here
     // Just occasionally refresh sidebar to show updated timestamps
-    console.log('Note saved:', updatedNote.id)
     if (Math.random() < 0.1) { // 10% chance to refresh
       sidebarRef.current?.refreshNotes()
     }
@@ -58,7 +63,6 @@ export function NotesApp() {
 
   const handleTitleChange = useCallback((title: string) => {
     // The auto-save handles title changes, no need to update local state
-    console.log('Title changed to:', title)
   }, [])
 
   // Show loading state while note is being fetched
