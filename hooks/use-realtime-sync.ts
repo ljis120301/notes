@@ -319,10 +319,11 @@ export function useRealtimeSync(
       console.log(`🔄 Force refreshing note ${noteId} from server`)
       const freshNote = await pb.collection(notesCollection).getOne(noteId)
       
-      const normalizedNote = {
+      const normalizedNote: Note = {
         ...freshNote,
+        title: freshNote.title || 'Untitled',
         content: normalizeImageUrls(freshNote.content || '')
-      } as Note
+      }
       
       // Update caches
       queryClient.setQueryData(['note', noteId], normalizedNote)

@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { 
@@ -130,7 +129,7 @@ export function MultiDeviceSyncDemo({ syncResult }: MultiDeviceSyncDemoProps) {
         <CardHeader>
           <CardTitle className="text-lg">Enhanced Sync Features</CardTitle>
           <CardDescription>
-            What's new in the multi-device sync system
+            What&apos;s new in the multi-device sync system
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
