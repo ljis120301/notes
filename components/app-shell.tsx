@@ -154,7 +154,7 @@ export function AppShell({ children, sidebar, userActions }: AppShellProps) {
                 }`
             }
             ${isMobile ? 'w-80 max-w-[85vw] top-[73px] bottom-0' : 'h-full'}
-            bg-card border-r border-border overflow-hidden
+            bg-sidebar border-r border-sidebar-border overflow-hidden
           `}
         >
           <div className="h-full overflow-hidden">

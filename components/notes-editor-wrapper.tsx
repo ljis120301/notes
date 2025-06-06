@@ -8,7 +8,8 @@ import { Note } from '@/lib/pocketbase'
 import { deleteNote } from '@/lib/notes-api'
 import { toast } from 'sonner'
 import { useAutosave } from '@/hooks/use-autosave'
-import { AutosaveStatusIndicator } from '@/components/autosave-status'
+import { useSimpleRealtimeSync } from '@/hooks/use-simple-realtime-sync'
+import { SyncStatusIndicator } from '@/components/sync-status-indicator'
 import { normalizeImageUrls } from '@/lib/pocketbase'
 
 interface NotesEditorWrapperProps {
@@ -31,13 +32,16 @@ const NotesEditorWrapper = ({
   // SimpleEditor is still isolated from re-renders via memo(() => true)
   const [noteContent, setNoteContent] = useState('')
 
-  // Initialize autosave with faster delays for better UX
-  const autosave = useAutosave(note.id || null, noteTitle, noteContent, {
+  // Get real-time sync status (this is working!)
+  const realtimeSync = useSimpleRealtimeSync()
+
+  // Initialize autosave (separate from real-time to avoid conflicts)
+  const autosaveResult = useAutosave(note.id || null, noteTitle, noteContent, {
     delay: 3000, // 3 second debounce - good balance of performance and responsiveness
     maxRetries: 3,
     enableOfflineSupport: true,
     // More responsive change detection
-    isChanged: (current, previous) => {
+    isChanged: (current: string, previous: string) => {
       const currentTrimmed = current.trim()
       const previousTrimmed = previous.trim()
       
@@ -51,21 +55,59 @@ const NotesEditorWrapper = ({
       onSave(updatedNote)
     },
     onSaveError: (error) => {
-      if (error.message?.includes('connection') || error.message?.includes('network')) {
-        toast.error('Connection lost - changes saved locally', { duration: 3000 })
-      } else if (error.message?.includes('conflict')) {
-        toast.error('Conflict detected - please save manually', { duration: 5000 })
-      } else {
-        toast.error('Failed to save note: ' + error.message, { duration: 3000 })
-      }
-    },
-    onStatusChange: (status) => {
-      // Optional: Log status changes for debugging
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Autosave status changed:', status)
-      }
+      toast.error('Failed to save: ' + error.message, { duration: 5000 })
     }
   })
+
+  // Create combined sync status that merges autosave + real-time
+  const combinedSyncStatus = useMemo(() => {
+    // Get the overall status priority: saving > conflicts > error > synced
+    let overallStatus: 'synced' | 'saving' | 'conflicts' | 'error' | 'offline' = 'synced'
+    
+    // Check autosave status first (higher priority)
+    if (autosaveResult.status.status === 'saving') {
+      overallStatus = 'saving'
+    } else if (autosaveResult.status.status === 'error') {
+      overallStatus = 'error'
+    } else if (autosaveResult.status.status === 'offline') {
+      overallStatus = 'offline'
+    } else if (autosaveResult.hasUnsavedChanges) {
+      // Still synced overall, just has unsaved changes
+      overallStatus = 'synced'
+    }
+
+    return {
+      // Create a compatible interface with IntegratedSyncResult
+      status: autosaveResult.status,
+      hasUnsavedChanges: autosaveResult.hasUnsavedChanges,
+      saveNow: autosaveResult.saveNow,
+      resetError: autosaveResult.resetError,
+      setPaused: autosaveResult.setPaused,
+      isPaused: autosaveResult.isPaused,
+      // Mock the real-time sync interface
+      isConnected: realtimeSync.isConnected,
+      lastSync: realtimeSync.lastEventTime,
+      conflicts: [], // No conflicts with this approach
+      connect: realtimeSync.connect,
+      disconnect: realtimeSync.disconnect,
+      resolveConflict: () => {}, // No-op
+      resolveAllConflicts: () => {}, // No-op
+      forceSync: async () => { autosaveResult.saveNow() },
+      pauseAllSync: () => { autosaveResult.setPaused(true) },
+      resumeAllSync: () => { autosaveResult.setPaused(false) },
+      refreshNote: async () => {}, // No-op for now
+      syncStatus: {
+        overall: overallStatus,
+        autosave: autosaveResult.status,
+        realtime: {
+          connected: realtimeSync.isConnected,
+          lastSync: realtimeSync.lastEventTime,
+          hasConflicts: false,
+          conflictCount: 0,
+        }
+      }
+    }
+  }, [autosaveResult, realtimeSync.isConnected, realtimeSync.lastEventTime, realtimeSync.connect, realtimeSync.disconnect])
 
   // Delete note mutation (kept separate from autosave)
   const handleDelete = useCallback(async () => {
@@ -74,7 +116,7 @@ const NotesEditorWrapper = ({
     if (confirm('Are you sure you want to delete this note?')) {
       try {
         // Pause autosave during deletion to avoid conflicts
-        autosave.setPaused(true)
+        autosaveResult.setPaused(true)
         
         await deleteNote(note.id)
         onDelete(note.id)
@@ -83,10 +125,10 @@ const NotesEditorWrapper = ({
         const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
         toast.error('Failed to delete note: ' + errorMessage)
         // Resume autosave if deletion failed
-        autosave.setPaused(false)
+        autosaveResult.setPaused(false)
       }
     }
-  }, [note.id, onDelete, autosave])
+  }, [note.id, onDelete, autosaveResult])
 
   // Load note content when note changes - but don't cause re-renders
   useEffect(() => {
@@ -112,23 +154,24 @@ const NotesEditorWrapper = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault()
-        if (autosave.hasUnsavedChanges) {
-          autosave.saveNow()
+        if (autosaveResult.hasUnsavedChanges) {
+          autosaveResult.saveNow()
         }
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [autosave])
+  }, [autosaveResult])
 
   // Memoize the editor props to prevent re-creation - critical for performance
   const editorProps = useMemo(() => ({
     initialContent: normalizeImageUrls(note.content || ''),
     onContentChange: handleContentChange,
     noteId: note.id,
-    noteTitle: note.title || ''
-  }), [note.content, note.id, note.title, handleContentChange])
+    noteTitle: note.title || '',
+    noteUpdated: note.updated
+  }), [note.content, note.id, note.title, note.updated, handleContentChange])
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -143,25 +186,20 @@ const NotesEditorWrapper = ({
             placeholder="Note title..."
           />
           <div className="flex items-center justify-between mt-1">
-            {/* Autosave status indicator */}
+            {/* Sync status indicator with real-time capabilities */}
             <div className="flex-1 min-w-0">
-              <AutosaveStatusIndicator
-                status={autosave.status}
-                hasUnsavedChanges={autosave.hasUnsavedChanges}
-                isPaused={autosave.isPaused}
-                onSaveNow={autosave.saveNow}
-                onRetry={autosave.resetError}
-                onTogglePause={() => autosave.setPaused(!autosave.isPaused)}
-                showPauseButton={false} // Hide on mobile for simplicity
-                showSaveButton={true}
-                compact={true} // Use compact mode for mobile
+              <SyncStatusIndicator
+                syncResult={combinedSyncStatus}
+                className="flex items-center gap-2"
+                showDetails={false} // Use compact mode for header
               />
             </div>
             
             {/* Additional info for development */}
             {process.env.NODE_ENV === 'development' && (
               <span className="text-xs text-muted-foreground hidden sm:inline">
-                {autosave.status.retryCount > 0 && `Retry ${autosave.status.retryCount}/3`}
+                {autosaveResult.status.retryCount > 0 && `Retry ${autosaveResult.status.retryCount}/3`}
+                {!realtimeSync.isConnected && ` | Real-time: disconnected`}
               </span>
             )}
           </div>

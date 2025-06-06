@@ -3,6 +3,44 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Note } from '@/lib/pocketbase'
 import { updateNote } from '@/lib/notes-api'
 
+// 🎛️ COMPLETE SYNC PERFORMANCE TUNING GUIDE
+// =============================================
+//
+// 📊 CURRENT SYNC TIMING:
+// Editor: 1.5s debounce → Autosave: 5s debounce → Network: ~100ms → Total: ~6.6s
+//
+// 🚀 SPEED PROFILES:
+//
+// INSTANT SYNC (for demos/testing):
+// - Editor debounce: 200ms
+// - Autosave delay: 500ms  
+// - Total sync: ~0.7s
+// ⚠️ WARNING: Very high server load, may cause conflicts
+//
+// FAST SYNC (responsive):
+// - Editor debounce: 500ms
+// - Autosave delay: 1500ms
+// - Total sync: ~2s
+// ⚠️ Higher server load, good for small teams
+//
+// BALANCED SYNC (recommended):
+// - Editor debounce: 1500ms (current)
+// - Autosave delay: 5000ms (current)
+// - Total sync: ~6.5s
+// ✅ Good balance of performance and responsiveness
+//
+// CONSERVATIVE SYNC (high load scenarios):
+// - Editor debounce: 3000ms
+// - Autosave delay: 10000ms
+// - Total sync: ~13s
+// ✅ Minimal server load, good for large teams or slow servers
+//
+// 🔧 HOW TO APPLY CHANGES:
+// 1. Adjust "delay" value below for autosave timing
+// 2. Adjust debounce timing in SimpleEditor for editor timing
+// 3. Test with multiple devices to verify behavior
+// 4. Monitor server load and adjust accordingly
+
 export interface AutosaveStatus {
   status: 'idle' | 'saving' | 'saved' | 'error' | 'offline' | 'conflict'
   lastSaved: Date | null
@@ -43,19 +81,54 @@ export interface AutosaveResult {
   isPaused: boolean
 }
 
+// 🎛️ PERFORMANCE TUNING: Autosave Configuration
 const DEFAULT_OPTIONS: Required<AutosaveOptions> = {
-  delay: 5000,
-  maxRetries: 3,
-  enableOfflineSupport: true,
+  // ⏱️ TUNING POINT: Autosave delay (currently 5000ms = 5s)
+  // This is the main delay that controls sync speed vs performance
+  // 
+  // AGGRESSIVE SYNC (1000-2500ms):
+  // ✅ Very responsive sync (changes appear quickly on other devices)
+  // ✅ Better for collaborative editing
+  // ❌ Much higher server load (more API calls)
+  // ❌ Higher chance of save conflicts
+  // ❌ More network usage
+  // 
+  // BALANCED SYNC (3000-5000ms):
+  // ✅ Good sync speed (current setting)
+  // ✅ Reasonable server load
+  // ✅ Good conflict avoidance
+  // 
+  // CONSERVATIVE SYNC (7000-15000ms):
+  // ✅ Minimal server load
+  // ✅ Very low conflict rate
+  // ❌ Slower sync (users may notice delay)
+  // ❌ Risk of data loss if browser crashes
+  // 
+  // RECOMMENDED RANGE: 2000ms - 10000ms
+  // CURRENT: 5000ms (good for most use cases)
+  delay: 5000, // 🎯 CHANGE THIS VALUE to adjust autosave→server timing
+  
+  // ♻️ TUNING POINT: Retry behavior
+  // Higher values = more resilient to network issues
+  // Lower values = faster failure detection
+  maxRetries: 5, // 🎯 RECOMMENDED: 3-5 retries
+  
+  enableOfflineSupport: true, // 🎯 Keep this true for reliability
+  
+  // 🧠 SMART CHANGE DETECTION: Prevents saves for trivial changes
+  // This function determines what constitutes a "meaningful" change
   isChanged: (current, previous) => {
     const currentTrimmed = current.trim()
     const previousTrimmed = previous.trim()
     
     if (currentTrimmed === previousTrimmed) return false
     
+    // 🎯 TUNING POINT: Change sensitivity (currently <5 chars)
+    // Lower number = more sensitive (saves more often)
+    // Higher number = less sensitive (saves less often)
     const lengthDiff = Math.abs(currentTrimmed.length - previousTrimmed.length)
     
-    if (lengthDiff < 5) {
+    if (lengthDiff < 5) { // 🎯 ADJUST: 1-10 characters
       const currentLines = currentTrimmed.split('\n').length
       const previousLines = previousTrimmed.split('\n').length
       const currentHtml = (currentTrimmed.match(/</g) || []).length
@@ -200,6 +273,12 @@ export function useAutosave(
       opts.onSaveSuccess(updatedNote)
     },
     onError: (error: any) => {
+      // Handle request cancellation gracefully - these are not real errors
+      if (error.message === 'Request cancelled') {
+        console.log('Autosave request was cancelled, ignoring')
+        return
+      }
+      
       const isNetworkError = !isOnlineRef.current || error.message?.includes('connection') || error.message?.includes('network')
       const isConflictError = error.status === 409 || error.message?.includes('conflict')
       

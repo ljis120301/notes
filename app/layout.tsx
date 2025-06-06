@@ -3,6 +3,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/lib/auth-context";
 import { QueryProvider } from "@/components/query-provider";
+import { ThemeMeta } from "@/components/theme-meta";
 import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
@@ -19,6 +20,12 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="icon" type="image/png" href="/notes.png" />
+        <meta name="theme-color" content="#fafafa" />
+        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#34363f" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Notes" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -51,6 +58,7 @@ export default function RootLayout({
             themes={["light", "dark", "frappe", "system"]}
           >
             <AuthProvider>
+              <ThemeMeta />
               {children}
               <Toaster position="top-right" />
             </AuthProvider>
