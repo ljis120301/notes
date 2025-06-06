@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useCallback } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Note } from '@/lib/pocketbase'
 import { AppShell } from '@/components/app-shell'
 import { NotesSidebar } from './notes-sidebar'
@@ -16,6 +16,7 @@ import NotesEditorWrapper from './notes-editor-wrapper'
 
 export function NotesApp() {
   const { user, logout } = useAuth()
+  const queryClient = useQueryClient()
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null)
   const sidebarRef = useRef<{ refreshNotes: () => void } | null>(null)
   
@@ -46,12 +47,15 @@ export function NotesApp() {
   }, [])
 
   const handleSaveNote = useCallback((updatedNote: Note) => {
-    // The cache is already updated by auto-save, no need to do anything here
-    // Just occasionally refresh sidebar to show updated timestamps
-    if (Math.random() < 0.1) { // 10% chance to refresh
-      sidebarRef.current?.refreshNotes()
-    }
-  }, [])
+    // Update the React Query cache with the saved note to ensure consistency
+    queryClient.setQueryData(['note', updatedNote.id], updatedNote)
+    queryClient.setQueryData(['notes'], (oldNotes: Note[] = []) =>
+      oldNotes.map(n => n.id === updatedNote.id ? updatedNote : n)
+    )
+    
+    // Refresh sidebar to show updated timestamps and any other changes
+    sidebarRef.current?.refreshNotes()
+  }, [queryClient])
 
   const handleDeleteNote = useCallback((noteId: string) => {
     if (selectedNoteId === noteId) {
@@ -62,8 +66,18 @@ export function NotesApp() {
   }, [selectedNoteId])
 
   const handleTitleChange = useCallback((title: string) => {
-    // The auto-save handles title changes, no need to update local state
-  }, [])
+    // Update the note title in cache immediately for better UX
+    if (selectedNoteId) {
+      queryClient.setQueryData(['note', selectedNoteId], (oldNote: Note | undefined) => 
+        oldNote ? { ...oldNote, title } : oldNote
+      )
+      
+      // Also update in the notes list for sidebar consistency
+      queryClient.setQueryData(['notes'], (oldNotes: Note[] = []) =>
+        oldNotes.map(n => n.id === selectedNoteId ? { ...n, title } : n)
+      )
+    }
+  }, [selectedNoteId, queryClient])
 
   // Show loading state while note is being fetched
   if (selectedNoteId && isLoadingNote) {

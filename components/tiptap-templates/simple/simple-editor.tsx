@@ -154,14 +154,14 @@ const usePerformanceMonitor = () => {
       // Only monitor if PerformanceObserver supports it
       try {
         observer.observe({ entryTypes: ['first-input', 'layout-shift'] })
-      } catch (e) {
+      } catch {
         // PerformanceObserver not supported
       }
       
       return () => {
         try {
           observer.disconnect()
-        } catch (e) {
+        } catch {
           // Observer was never connected
         }
       }

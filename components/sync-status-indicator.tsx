@@ -1,7 +1,7 @@
 "use client"
 
 import React from 'react'
-import { AlertCircle, CheckCircle, Cloud, CloudOff, RefreshCw, Wifi, WifiOff } from 'lucide-react'
+import { AlertCircle, CheckCircle, Cloud, RefreshCw, Wifi, WifiOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
