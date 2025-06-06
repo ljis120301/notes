@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { pb, notesCollection, Note, normalizeImageUrls } from '@/lib/pocketbase'
+import { pb, notesCollection, foldersCollection, Note, Folder, normalizeImageUrls } from '@/lib/pocketbase'
 
 export interface SimpleRealtimeSyncResult {
   isConnected: boolean
@@ -16,7 +16,8 @@ export function useSimpleRealtimeSync(): SimpleRealtimeSyncResult {
   const [lastEventTime, setLastEventTime] = useState<Date | null>(null)
   const [connectionAttempts, setConnectionAttempts] = useState(0)
   const [maxAttemptsReached, setMaxAttemptsReached] = useState(false)
-  const unsubscribeRef = useRef<(() => void) | null>(null)
+  const unsubscribeNotesRef = useRef<(() => void) | null>(null)
+  const unsubscribeFoldersRef = useRef<(() => void) | null>(null)
   const queryClient = useQueryClient()
   const healthCheckRef = useRef<NodeJS.Timeout | null>(null)
   const cacheCleanupRef = useRef<NodeJS.Timeout | null>(null)
@@ -34,15 +35,19 @@ export function useSimpleRealtimeSync(): SimpleRealtimeSyncResult {
       const fiveMinutesAgo = Date.now() - (5 * 60 * 1000)
       const lastEventTimestamp = lastEventTime?.getTime() || 0
       
-             if (lastEventTimestamp < fiveMinutesAgo && isConnected) {
-         console.log('Simple real-time: No events received recently, reconnecting...')
-         setIsConnected(false)
-         if (unsubscribeRef.current) {
-           unsubscribeRef.current()
-           unsubscribeRef.current = null
-         }
-         // Reconnection will be handled by the effect
-       }
+      if (lastEventTimestamp < fiveMinutesAgo && isConnected) {
+        console.log('Simple real-time: No events received recently, reconnecting...')
+        setIsConnected(false)
+        if (unsubscribeNotesRef.current) {
+          unsubscribeNotesRef.current()
+          unsubscribeNotesRef.current = null
+        }
+        if (unsubscribeFoldersRef.current) {
+          unsubscribeFoldersRef.current()
+          unsubscribeFoldersRef.current = null
+        }
+        // Reconnection will be handled by the effect
+      }
     }, 60000) // Check every minute
   }, [lastEventTime, isConnected])
 
@@ -73,7 +78,7 @@ export function useSimpleRealtimeSync(): SimpleRealtimeSyncResult {
   }, [queryClient])
 
   const connect = useCallback(async () => {
-    if (unsubscribeRef.current) {
+    if (unsubscribeNotesRef.current || unsubscribeFoldersRef.current) {
       console.log('Simple real-time: Already connected, skipping')
       return
     }
@@ -90,10 +95,12 @@ export function useSimpleRealtimeSync(): SimpleRealtimeSyncResult {
 
     try {
       console.log('Simple real-time: Attempting to connect to:', pb.baseUrl)
-      const unsubscribe = await pb.collection(notesCollection).subscribe('*', (event) => {
+      
+      // Subscribe to notes collection
+      const unsubscribeNotes = await pb.collection(notesCollection).subscribe('*', (event) => {
         setLastEventTime(new Date())
         
-        // Process the event
+        // Process the notes event
         try {
           const { action, record } = event
           
@@ -101,7 +108,9 @@ export function useSimpleRealtimeSync(): SimpleRealtimeSyncResult {
             return
           }
 
-          // Normalize the note
+          console.log('Simple real-time: Notes event:', { action, noteId: record.id, folder_id: record.folder_id })
+
+          // Normalize the note - INCLUDING folder_id
           const normalizedNote: Note = {
             id: record.id,
             title: record.title || 'Untitled',
@@ -110,6 +119,7 @@ export function useSimpleRealtimeSync(): SimpleRealtimeSyncResult {
             created: record.created,
             updated: record.updated,
             pinned: record.pinned || false,
+            folder_id: record.folder_id || undefined,  // CRITICAL: Include folder_id
           }
 
           if (action === 'update' || action === 'create') {
@@ -168,14 +178,82 @@ export function useSimpleRealtimeSync(): SimpleRealtimeSyncResult {
             queryClient.invalidateQueries({ queryKey: ['notes'], exact: true })
           }
         } catch (error) {
-          console.error('Simple real-time: Error processing event:', error)
+          console.error('Simple real-time: Error processing notes event:', error)
         }
       })
 
-      unsubscribeRef.current = unsubscribe
+      // Subscribe to folders collection
+      const unsubscribeFolders = await pb.collection(foldersCollection).subscribe('*', (event) => {
+        setLastEventTime(new Date())
+        
+        // Process the folders event
+        try {
+          const { action, record } = event
+          
+          if (!record || !record.id) {
+            return
+          }
+
+          console.log('Simple real-time: Folders event:', { action, folderId: record.id, name: record.name })
+
+          // Normalize the folder
+          const normalizedFolder: Folder = {
+            id: record.id,
+            name: record.name || 'Untitled Folder',
+            user: record.user,
+            expanded: record.expanded !== undefined ? record.expanded : true,
+            created: record.created,
+            updated: record.updated,
+          }
+
+          if (action === 'update' || action === 'create') {
+            // Update folders list
+            queryClient.setQueryData(['folders'], (oldFolders: Folder[] = []) => {
+              // Remove any existing instance first to prevent duplicates
+              const filteredFolders = oldFolders.filter(f => f.id !== record.id)
+              
+              if (action === 'create') {
+                // For new folders, add to the list and sort
+                return [...filteredFolders, normalizedFolder].sort((a, b) => a.name.localeCompare(b.name))
+              } else {
+                // For updates, maintain the folder in its current position but update data
+                const originalIndex = oldFolders.findIndex(f => f.id === record.id)
+                if (originalIndex >= 0) {
+                  const newFolders = [...filteredFolders]
+                  newFolders.splice(originalIndex, 0, normalizedFolder)
+                  return newFolders.sort((a, b) => a.name.localeCompare(b.name))
+                } else {
+                  // If not found, add and sort (shouldn't happen for updates)
+                  return [...filteredFolders, normalizedFolder].sort((a, b) => a.name.localeCompare(b.name))
+                }
+              }
+            })
+            
+            // Minimal invalidation to trigger UI updates
+            queryClient.invalidateQueries({ 
+              queryKey: ['folders'], 
+              exact: true,
+              refetchType: 'none' // Don't refetch, just mark as stale
+            })
+          } else if (action === 'delete') {
+            // Remove from folders list
+            queryClient.setQueryData(['folders'], (oldFolders: Folder[] = []) =>
+              oldFolders.filter(f => f.id !== record.id)
+            )
+            
+            // Invalidate folders list
+            queryClient.invalidateQueries({ queryKey: ['folders'], exact: true })
+          }
+        } catch (error) {
+          console.error('Simple real-time: Error processing folders event:', error)
+        }
+      })
+
+      unsubscribeNotesRef.current = unsubscribeNotes
+      unsubscribeFoldersRef.current = unsubscribeFolders
       setIsConnected(true)
       setConnectionAttempts(0) // Reset on successful connection
-      console.log('Simple real-time: Successfully connected!')
+      console.log('Simple real-time: Successfully connected to both notes and folders collections!')
 
     } catch (error) {
       console.error('Simple real-time: Connection failed:', error)
@@ -213,9 +291,13 @@ export function useSimpleRealtimeSync(): SimpleRealtimeSyncResult {
     }
     
     // Disconnect from real-time
-    if (unsubscribeRef.current) {
-      unsubscribeRef.current()
-      unsubscribeRef.current = null
+    if (unsubscribeNotesRef.current) {
+      unsubscribeNotesRef.current()
+      unsubscribeNotesRef.current = null
+    }
+    if (unsubscribeFoldersRef.current) {
+      unsubscribeFoldersRef.current()
+      unsubscribeFoldersRef.current = null
     }
     setIsConnected(false)
   }, [])

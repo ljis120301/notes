@@ -154,6 +154,17 @@ export interface Note {
   created?: string
   updated?: string
   pinned?: boolean  // New field for pin functionality
+  folder_id?: string  // New field for folder relationship
 }
 
-export const notesCollection = 'notes' 
+export interface Folder {
+  id?: string
+  name: string
+  user?: string
+  expanded?: boolean  // Whether the folder is expanded/collapsed
+  created?: string
+  updated?: string
+}
+
+export const notesCollection = 'notes'
+export const foldersCollection = 'folders' 
