@@ -1,4 +1,4 @@
-import { pb, Note, notesCollection, getRelativeFileUrl, normalizeImageUrls } from './pocketbase'
+import { pb, Note, notesCollection, getRelativeFileUrl, normalizeImageUrls, Folder, foldersCollection } from './pocketbase'
 
 // Helper function to ensure user is authenticated
 function ensureAuth() {
@@ -281,6 +281,143 @@ export async function unpinNote(id: string): Promise<Note> {
       throw new Error('Request cancelled')
     }
     console.error('notes-api unpinNote failed:', error)
+    throw error
+  }
+}
+
+// Folder management functions
+export async function createFolder(name: string): Promise<Folder> {
+  const userId = ensureAuth()
+  
+  try {
+    const record = await pb.collection(foldersCollection).create({
+      name,
+      user: userId,
+      expanded: true  // Default to expanded
+    })
+    return record as unknown as Folder
+  } catch (error: unknown) {
+    if (isAutoCancelled(error)) {
+      console.log('Create folder request was auto-cancelled')
+      throw new Error('Request cancelled')
+    }
+    console.error('notes-api createFolder failed:', error)
+    throw error
+  }
+}
+
+export async function getFolders(): Promise<Folder[]> {
+  const userId = ensureAuth()
+  
+  try {
+    const records = await pb.collection(foldersCollection).getFullList({
+      sort: 'name',
+      filter: `user = "${userId}"`
+    })
+    return records as unknown as Folder[]
+  } catch (error: unknown) {
+    if (isAutoCancelled(error)) {
+      console.log('Get folders request was auto-cancelled')
+      return []
+    }
+    
+    const err = error as { status?: number }
+    if (err.status === 400) {
+      // User field doesn't exist, get all folders for now
+      console.warn('User field not found in folders collection. Showing all folders.')
+      try {
+        const records = await pb.collection(foldersCollection).getFullList({
+          sort: 'name'
+        })
+        return records as unknown as Folder[]
+      } catch (fallbackError: unknown) {
+        if (isAutoCancelled(fallbackError)) {
+          console.log('Fallback get folders request was auto-cancelled')
+          return []
+        }
+        console.error('Failed to fetch folders:', fallbackError)
+        return []
+      }
+    }
+    throw error
+  }
+}
+
+export async function updateFolder(id: string, data: Partial<Folder>): Promise<Folder> {
+  ensureAuth()
+  
+  try {
+    const record = await pb.collection(foldersCollection).update(id, data)
+    return record as unknown as Folder
+  } catch (error: unknown) {
+    if (isAutoCancelled(error)) {
+      console.log('Update folder request was auto-cancelled')
+      throw new Error('Request cancelled')
+    }
+    console.error('notes-api updateFolder failed:', error)
+    throw error
+  }
+}
+
+export async function deleteFolder(id: string): Promise<boolean> {
+  ensureAuth()
+  
+  try {
+    // First, update all notes in this folder to have no folder
+    const notesInFolder = await pb.collection(notesCollection).getFullList({
+      filter: `folder_id = "${id}"`
+    })
+    
+    // Move notes out of folder before deleting the folder
+    await Promise.all(
+      notesInFolder.map(note => 
+        pb.collection(notesCollection).update(note.id, { folder_id: null })
+      )
+    )
+    
+    // Delete the folder
+    await pb.collection(foldersCollection).delete(id)
+    return true
+  } catch (error: unknown) {
+    if (isAutoCancelled(error)) {
+      console.log('Delete folder request was auto-cancelled')
+      return false
+    }
+    console.error('notes-api deleteFolder failed:', error)
+    throw error
+  }
+}
+
+export async function moveNoteToFolder(noteId: string, folderId: string | null): Promise<Note> {
+  ensureAuth()
+  
+  try {
+    const record = await pb.collection(notesCollection).update(noteId, { 
+      folder_id: folderId 
+    })
+    return record as unknown as Note
+  } catch (error: unknown) {
+    if (isAutoCancelled(error)) {
+      console.log('Move note to folder request was auto-cancelled')
+      throw new Error('Request cancelled')
+    }
+    console.error('notes-api moveNoteToFolder failed:', error)
+    throw error
+  }
+}
+
+export async function toggleFolderExpanded(id: string, expanded: boolean): Promise<Folder> {
+  ensureAuth()
+  
+  try {
+    const record = await pb.collection(foldersCollection).update(id, { expanded })
+    return record as unknown as Folder
+  } catch (error: unknown) {
+    if (isAutoCancelled(error)) {
+      console.log('Toggle folder expanded request was auto-cancelled')
+      throw new Error('Request cancelled')
+    }
+    console.error('notes-api toggleFolderExpanded failed:', error)
     throw error
   }
 } 
