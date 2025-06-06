@@ -11,6 +11,17 @@ import { useAutosave } from '@/hooks/use-autosave'
 import { useSimpleRealtimeSync } from '@/hooks/use-simple-realtime-sync'
 import { SyncStatusIndicator } from '@/components/sync-status-indicator'
 import { normalizeImageUrls } from '@/lib/pocketbase'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 
 interface NotesEditorWrapperProps {
   note: Note
@@ -26,11 +37,9 @@ const NotesEditorWrapper = ({
   onDelete, 
   onTitleChange 
 }: NotesEditorWrapperProps) => {
-  const [noteTitle, setNoteTitle] = useState('')
-  
-  // Restore noteContent state - needed for autosave to work properly
-  // SimpleEditor is still isolated from re-renders via memo(() => true)
-  const [noteContent, setNoteContent] = useState('')
+  const [noteTitle, setNoteTitle] = useState(note.title || '')
+  const [noteContent, setNoteContent] = useState(normalizeImageUrls(note.content || ''))
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   // Get real-time sync status (this is working!)
   const realtimeSync = useSimpleRealtimeSync()
@@ -113,20 +122,19 @@ const NotesEditorWrapper = ({
   const handleDelete = useCallback(async () => {
     if (!note.id) return
     
-    if (confirm('Are you sure you want to delete this note?')) {
-      try {
-        // Pause autosave during deletion to avoid conflicts
-        autosaveResult.setPaused(true)
-        
-        await deleteNote(note.id)
-        onDelete(note.id)
-        toast.success('Note deleted')
-      } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-        toast.error('Failed to delete note: ' + errorMessage)
-        // Resume autosave if deletion failed
-        autosaveResult.setPaused(false)
-      }
+    try {
+      // Pause autosave during deletion to avoid conflicts
+      autosaveResult.setPaused(true)
+      
+      await deleteNote(note.id)
+      onDelete(note.id)
+      toast.success('Note deleted')
+      setDeleteDialogOpen(false)
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      toast.error('Failed to delete note: ' + errorMessage)
+      // Resume autosave if deletion failed
+      autosaveResult.setPaused(false)
     }
   }, [note.id, onDelete, autosaveResult])
 
@@ -206,14 +214,34 @@ const NotesEditorWrapper = ({
         </div>
         
         <div className="flex gap-1 sm:gap-2 ml-2 sm:ml-4 flex-shrink-0">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={handleDelete}
-            className="text-destructive hover:text-destructive h-8 w-8 sm:h-9 sm:w-9 p-0"
-          >
-            <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          </Button>
+          <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <AlertDialogTrigger asChild>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-destructive hover:text-destructive h-8 w-8 sm:h-9 sm:w-9 p-0"
+              >
+                <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Note</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete "{noteTitle || 'Untitled'}"? This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDelete}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
