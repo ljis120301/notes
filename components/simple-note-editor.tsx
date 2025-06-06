@@ -11,6 +11,17 @@ import { getNotes, createNote, updateNote, deleteNote, getNote } from '@/lib/not
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth-context'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 
 export function SimpleNoteEditor() {
   const { user, logout } = useAuth()
@@ -19,6 +30,7 @@ export function SimpleNoteEditor() {
   const [noteContent, setNoteContent] = useState('')
   const [noteTitle, setNoteTitle] = useState('')
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   // Fetch all notes
   const { data: notes = [], isLoading: isLoadingNotes } = useQuery({
@@ -139,8 +151,9 @@ export function SimpleNoteEditor() {
   }
 
   const handleDeleteNote = () => {
-    if (selectedNoteId && confirm('Are you sure you want to delete this note?')) {
+    if (selectedNoteId) {
       deleteNoteMutation.mutate(selectedNoteId)
+      setDeleteDialogOpen(false)
     }
   }
 
@@ -256,14 +269,34 @@ export function SimpleNoteEditor() {
                   <Save className="h-4 w-4 mr-1" />
                   Save
                 </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={handleDeleteNote}
-                  disabled={deleteNoteMutation.isPending}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={deleteNoteMutation.isPending}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Note</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete "{noteTitle || 'Untitled'}"? This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleDeleteNote}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
 
