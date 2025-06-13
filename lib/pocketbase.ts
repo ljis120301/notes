@@ -166,5 +166,33 @@ export interface Folder {
   updated?: string
 }
 
+export interface Template {
+  id?: string
+  name: string
+  description?: string
+  content: string  // HTML content for the template
+  category: string  // Category like 'meeting', 'project', 'personal', etc.
+  tags?: string[]  // Array of tags for better organization
+  thumbnail?: string  // Optional base64 encoded thumbnail image
+  is_public?: boolean  // Whether template is shared publicly
+  users?: string  // Creator of the template
+  usage_count?: number  // Track how often template is used
+  created?: string
+  updated?: string
+}
+
+export interface TemplateCategory {
+  id?: string
+  name: string
+  description?: string
+  icon?: string  // Icon name (e.g., 'briefcase', 'calendar', etc.)
+  color?: string  // Hex color for category
+  users?: string  // Creator of the category
+  created?: string
+  updated?: string
+}
+
 export const notesCollection = 'notes'
-export const foldersCollection = 'folders' 
+export const foldersCollection = 'folders'
+export const templatesCollection = 'templates'
+export const templateCategoriesCollection = 'template_categories' 

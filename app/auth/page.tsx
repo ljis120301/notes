@@ -169,7 +169,7 @@ export default function AuthPage() {
                         minLength={8}
                         disabled={isFormLoading}
                         className="w-full px-3 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-                        placeholder="Password (min 8 characters)"
+                        placeholder="Password"
                       />
                     </div>
                     
