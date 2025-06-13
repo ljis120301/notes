@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Search, FileText, Sparkles, Plus, Clock, User, Tag, Eye } from 'lucide-react'
 import { getTemplates, incrementTemplateUsage } from '@/lib/templates-api'
-import { Template } from '@/lib/pocketbase'
+import { Template, Note } from '@/lib/pocketbase'
 import { createNote } from '@/lib/notes-api'
 import { toast } from 'sonner'
 
@@ -173,7 +173,7 @@ function TemplatePreview({ content }: { content: string }) {
 }
 
 interface TemplateGalleryProps {
-  onCreateNote: (note: any) => void
+  onCreateNote: (note: Note) => void
 }
 
 export function TemplateGallery({ onCreateNote }: TemplateGalleryProps) {
@@ -457,7 +457,7 @@ export function TemplateGallery({ onCreateNote }: TemplateGalleryProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Create Note from Template</AlertDialogTitle>
             <AlertDialogDescription>
-              This will create a new note using the "{selectedTemplate?.name}" template. 
+              This will create a new note using the &quot;{selectedTemplate?.name}&quot; template. 
               You can edit the content after the note is created.
             </AlertDialogDescription>
           </AlertDialogHeader>

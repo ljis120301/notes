@@ -261,8 +261,6 @@ export class SimpleDocumentConverter {
     // Create a temporary div to parse HTML
     const tempDiv = document.createElement('div')
     tempDiv.innerHTML = html
-
-    let markdown = ''
     
     const processNode = (node: Node): string => {
       if (node.nodeType === Node.TEXT_NODE) {
