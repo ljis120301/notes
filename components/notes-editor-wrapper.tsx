@@ -228,7 +228,7 @@ const NotesEditorWrapper = ({
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete Note</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Are you sure you want to delete "{noteTitle || 'Untitled'}"? This action cannot be undone.
+                  Are you sure you want to delete &quot;{noteTitle || 'Untitled'}&quot;? This action cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

@@ -5,21 +5,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { 
   Search, 
   FileText, 
-  Plus, 
   Star,
   Grid3X3,
   List,
-  Tag,
   Clock,
   User,
   Globe,
-  Filter,
-  X,
-  ChevronDown,
   BookOpen,
   Users,
   Briefcase,
-  Calendar,
   Sparkles
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -28,7 +22,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
+
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Select,
@@ -43,7 +37,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
 import {
   Tooltip,
@@ -51,10 +44,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { Template, TemplateCategory } from '@/lib/pocketbase'
+import { Template } from '@/lib/pocketbase'
 import { 
   getTemplates, 
-  getTemplateCategories, 
   incrementTemplateUsage,
   setupDefaultTemplates 
 } from '@/lib/templates-api'
@@ -271,16 +263,7 @@ export function TemplatePicker({ open, onOpenChange, onSelectTemplate }: Templat
     staleTime: 5 * 60 * 1000, // 5 minutes
   })
 
-  // Fetch categories
-  const { 
-    data: categories = [],
-    isLoading: isLoadingCategories 
-  } = useQuery({
-    queryKey: ['template-categories'],
-    queryFn: getTemplateCategories,
-    enabled: open,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-  })
+
 
   // Template usage mutation
   const incrementUsageMutation = useMutation({

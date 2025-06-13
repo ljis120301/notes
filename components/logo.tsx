@@ -1,5 +1,5 @@
 import { FileText } from "lucide-react"
-import { usePathname, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 
 interface LogoProps {
   onLogoClick?: () => void
@@ -7,7 +7,6 @@ interface LogoProps {
 
 export default function Logo({ onLogoClick }: LogoProps) {
   const router = useRouter()
-  const pathname = usePathname()
   
   const handleClick = () => {
     if (onLogoClick) {

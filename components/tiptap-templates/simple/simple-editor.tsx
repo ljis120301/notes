@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
+import { EditorView } from "@tiptap/pm/view"
 
 // --- Tiptap Core Extensions ---
 import { StarterKit } from "@tiptap/starter-kit"
@@ -70,7 +71,6 @@ import { LinkIcon } from "@/components/tiptap-icons/link-icon"
 // --- Hooks ---
 import { useMobile } from "@/hooks/use-mobile"
 import { useWindowSize } from "@/hooks/use-window-size"
-import { useCursorVisibility } from "@/hooks/use-cursor-visibility"
 
 // --- Lib ---
 import { handleImageUpload, MAX_FILE_SIZE } from "@/lib/tiptap-utils"
@@ -435,7 +435,7 @@ export const SimpleEditor = React.memo(({
 
   // 🍎 iPad Photos App Drag & Drop Support
   // Create drag and drop handlers for external image files
-  const handleDragOver = React.useCallback((view: any, event: DragEvent) => {
+  const handleDragOver = React.useCallback((view: EditorView, event: DragEvent) => {
     // Only handle if files are being dragged
     if (!event.dataTransfer?.files?.length && !event.dataTransfer?.types?.includes('Files')) {
       return false
@@ -460,7 +460,7 @@ export const SimpleEditor = React.memo(({
     return false
   }, [])
 
-  const handleDrop = React.useCallback((view: any, event: DragEvent) => {
+  const handleDrop = React.useCallback((view: EditorView, event: DragEvent) => {
     const files = event.dataTransfer?.files
     if (!files || files.length === 0) {
       return false
@@ -560,7 +560,7 @@ export const SimpleEditor = React.memo(({
     return true
   }, [])
 
-  const handleDragLeave = React.useCallback((view: any, event: DragEvent) => {
+  const handleDragLeave = React.useCallback((view: EditorView) => {
     // Remove visual feedback when drag leaves
     const editorElement = view.dom as HTMLElement
     editorElement.classList.remove('drag-over-image')
@@ -596,10 +596,10 @@ export const SimpleEditor = React.memo(({
         dragover: handleDragOver,
         drop: handleDrop,
         dragleave: handleDragLeave,
-        dragenter: (view, event) => {
+        dragenter: (view, _event) => {
           // Prevent default dragenter to enable dragover
-          if (event.dataTransfer?.types?.includes('Files')) {
-            event.preventDefault()
+          if (_event.dataTransfer?.types?.includes('Files')) {
+            _event.preventDefault()
           }
           return false
         }

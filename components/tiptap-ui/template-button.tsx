@@ -9,6 +9,7 @@ import { Template } from '@/lib/pocketbase'
 import { toast } from 'sonner'
 
 interface TemplateButtonProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   editor?: any // TipTap editor instance
   text?: string
   className?: string
@@ -33,10 +34,6 @@ export function TemplateButton({ editor: providedEditor, text = 'Templates', cla
     }
 
     try {
-      // Get current editor state
-      const { state } = editor
-      const { selection } = state
-      
       // Check if we should replace content or insert at cursor
       const shouldReplaceAll = editor.isEmpty
       

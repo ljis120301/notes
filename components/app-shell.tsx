@@ -3,7 +3,7 @@
 import * as React from "react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Button } from "@/components/ui/button"
-import { FileText, Menu, X } from "lucide-react"
+import { Menu, X } from "lucide-react"
 import { useMobile } from "@/hooks/use-mobile"
 import Logo from "./logo"
 

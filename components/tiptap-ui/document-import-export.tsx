@@ -40,7 +40,6 @@ interface DocumentImportExportProps {
 }
 
 type ExportFormat = 'pdf' | 'docx' | 'markdown' | 'html' | 'json'
-type ImportFormat = 'docx' | 'markdown' | 'html' | 'json' | 'txt'
 
 const exportFormatConfig = {
   pdf: { label: 'PDF', icon: FileText, description: 'Portable Document Format' },
