@@ -1,6 +1,5 @@
 import { Extension } from '@tiptap/core'
 import type { Editor } from '@tiptap/react'
-import mammoth from 'mammoth'
 import TurndownService from 'turndown'
 import { saveAs } from 'file-saver'
 
@@ -449,7 +448,7 @@ export class DocumentConverter {
           filter: (node): boolean => {
             return node.nodeName === 'LI' && 
                    !!node.parentNode && node.parentNode.nodeName === 'UL' && 
-                   !!node.querySelector('input[type="checkbox"]')
+                   !!(node as Element).querySelector('input[type="checkbox"]')
           },
           replacement: (content, node) => {
             const checkbox = (node as Element).querySelector('input[type="checkbox"]')
@@ -777,21 +776,38 @@ export class DocumentConverter {
 
     this.options.onProgress?.(10)
 
-    const arrayBuffer = await file.arrayBuffer()
+    // Create FormData to send file to server
+    const formData = new FormData()
+    formData.append('file', file)
     
     this.options.onProgress?.(30)
 
-    const result = await mammoth.convertToHtml({ arrayBuffer })
-    
-    this.options.onProgress?.(70)
+    // Send file to server-side API for conversion
+    const response = await fetch('/api/convert-docx', {
+      method: 'POST',
+      body: formData,
+    })
 
-    if (result.value) {
-      this.editor.commands.setContent(result.value)
+    this.options.onProgress?.(60)
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Failed to convert DOCX file')
+    }
+
+    const result = await response.json()
+    
+    this.options.onProgress?.(80)
+
+    if (result.success && result.html) {
+      this.editor.commands.setContent(result.html)
+    } else {
+      throw new Error('Invalid response from DOCX conversion service')
     }
 
     this.options.onProgress?.(100)
 
-    if (result.messages.length > 0) {
+    if (result.messages && result.messages.length > 0) {
       console.warn('DOCX import warnings:', result.messages)
     }
   }
