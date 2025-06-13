@@ -5,14 +5,16 @@ import { ModeToggle } from "@/components/mode-toggle"
 import { Button } from "@/components/ui/button"
 import { FileText, Menu, X } from "lucide-react"
 import { useMobile } from "@/hooks/use-mobile"
+import Logo from "./logo"
 
 interface AppShellProps {
   children: React.ReactNode
   sidebar?: React.ReactNode
   userActions?: React.ReactNode
+  onLogoClick?: () => void
 }
 
-export function AppShell({ children, sidebar, userActions }: AppShellProps) {
+export function AppShell({ children, sidebar, userActions, onLogoClick }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = React.useState(false) // Start closed on mobile
   const isMobile = useMobile()
   const sidebarRef = React.useRef<HTMLDivElement>(null)
@@ -115,8 +117,7 @@ export function AppShell({ children, sidebar, userActions }: AppShellProps) {
             <span className="sr-only">Toggle sidebar</span>
           </Button>
           <div className="flex items-center space-x-2">
-            <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-            <h1 className="text-lg sm:text-xl font-semibold">Notes</h1>
+            <Logo onLogoClick={onLogoClick} />
           </div>
         </div>
         

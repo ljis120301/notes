@@ -17,6 +17,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Card, CardContent } from '@/components/ui/card'
 import { Note, Folder as FolderType } from '@/lib/pocketbase'
 import { getNotes, searchNotes, createNote, pinNote, unpinNote, getFolders, createFolder, updateFolder, deleteFolder, moveNoteToFolder, toggleFolderExpanded } from '@/lib/notes-api'
+
 import { formatDistanceToNow } from 'date-fns'
 import { pb } from '@/lib/pocketbase'
 
@@ -569,8 +570,9 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
 
     // Create note mutation
     const createNoteMutation = useMutation({
-      mutationFn: async () => {
-        const newNote = await createNote('Untitled Note', '<h1>New Note</h1><p>Start writing your note here...</p>')
+      mutationFn: async (templateContent?: string) => {
+        const content = templateContent || '<h1>New Note</h1><p>Start writing your note here...</p>'
+        const newNote = await createNote('Untitled Note', content)
         return newNote
       },
       onSuccess: (newNote) => {
@@ -744,7 +746,7 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
       if (!pb.authStore.isValid || createNoteMutation.isPending) {
         return
       }
-      createNoteMutation.mutate()
+      createNoteMutation.mutate(undefined)
     }, [createNoteMutation])
 
     // Handle pin/unpin toggle
@@ -957,6 +959,8 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
                 disabled={isLoading}
               />
             </div>
+
+
 
             {/* Error Message */}
             {error && !isLoading && (

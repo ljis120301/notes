@@ -1,17 +1,18 @@
 "use client"
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Note } from '@/lib/pocketbase'
 import { AppShell } from '@/components/app-shell'
 import { NotesSidebar } from './notes-sidebar'
-import { EditorPlaceholder } from '@/components/editor-placeholder'
+import { TemplateGallery } from '@/components/template-gallery'
 import { ProtectedRoute } from '@/components/protected-route'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { LogOut } from 'lucide-react'
 import { getNote } from '@/lib/notes-api'
 import NotesEditorWrapper from './notes-editor-wrapper'
+import { autoSetupTemplatesIfNeeded } from '@/lib/setup-templates'
 
 
 export function NotesApp() {
@@ -20,6 +21,17 @@ export function NotesApp() {
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null)
   const sidebarRef = useRef<{ refreshNotes: () => void } | null>(null)
   
+  // Auto-setup templates when user is authenticated
+  useEffect(() => {
+    if (user) {
+      // Small delay to ensure PocketBase is fully initialized
+      const timer = setTimeout(() => {
+        autoSetupTemplatesIfNeeded()
+      }, 2000)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [user])
 
 
 
@@ -79,6 +91,11 @@ export function NotesApp() {
     }
   }, [selectedNoteId, queryClient])
 
+  const handleLogoClick = useCallback(() => {
+    // Clear selected note to return to template gallery
+    setSelectedNoteId(null)
+  }, [])
+
   // Show loading state while note is being fetched
   if (selectedNoteId && isLoadingNote) {
     return (
@@ -103,6 +120,7 @@ export function NotesApp() {
               </Button>
             </div>
           }
+          onLogoClick={handleLogoClick}
         >
           <div className="h-full flex items-center justify-center">
             <div className="text-center">
@@ -139,6 +157,7 @@ export function NotesApp() {
               </Button>
             </div>
           }
+          onLogoClick={handleLogoClick}
         >
           <div className="h-full flex items-center justify-center">
             <div className="text-center">
@@ -175,6 +194,7 @@ export function NotesApp() {
             </Button>
           </div>
         }
+        onLogoClick={handleLogoClick}
       >
         {selectedNote ? (
           <NotesEditorWrapper
@@ -184,7 +204,7 @@ export function NotesApp() {
             onTitleChange={handleTitleChange}
           />
         ) : (
-          <EditorPlaceholder />
+          <TemplateGallery onCreateNote={handleCreateNote} />
         )}
       </AppShell>
     </ProtectedRoute>

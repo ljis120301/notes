@@ -21,6 +21,7 @@ import { FontFamily } from "@tiptap/extension-font-family"
 import { Link } from "@/components/tiptap-extension/link-extension"
 import { Selection } from "@/components/tiptap-extension/selection-extension"
 import { TrailingNode } from "@/components/tiptap-extension/trailing-node-extension"
+import { DocumentConverterExtension } from "@/components/tiptap-extension/document-converter-extension"
 
 // --- UI Primitives ---
 import { Button } from "@/components/tiptap-ui-primitive/button"
@@ -58,6 +59,8 @@ import {
 import { MarkButton } from "@/components/tiptap-ui/mark-button"
 import { TextAlignButton } from "@/components/tiptap-ui/text-align-button"
 import { UndoRedoButton } from "@/components/tiptap-ui/undo-redo-button"
+import { TemplateButton } from "@/components/tiptap-ui/template-button"
+import { DocumentImportExport } from "@/components/tiptap-ui/document-import-export"
 
 // --- Icons ---
 import { ArrowLeftIcon } from "@/components/tiptap-icons/arrow-left-icon"
@@ -211,7 +214,7 @@ const StaticMainToolbarContent = React.memo(() => {
     )
   }
 
-  // Mobile main view - simplified toolbar
+  // Mobile main view - complete toolbar with horizontal scroll
   if (isMobile) {
     return (
       <>
@@ -221,20 +224,39 @@ const StaticMainToolbarContent = React.memo(() => {
         </ToolbarGroup>
         <ToolbarSeparator />
         <ToolbarGroup>
-          <HeadingDropdownMenu levels={[1, 2, 3]} />
-          <ListDropdownMenu types={["bulletList", "orderedList"]} />
+          <HeadingDropdownMenu levels={[1, 2, 3, 4]} />
+          <FontFamilyDropdownMenu />
+          <ListDropdownMenu types={["bulletList", "orderedList", "taskList"]} />
+          <BlockQuoteButton />
+          <CodeBlockButton />
         </ToolbarGroup>
         <ToolbarSeparator />
         <ToolbarGroup>
           <MarkButton type="bold" />
           <MarkButton type="italic" />
+          <MarkButton type="strike" />
+          <MarkButton type="code" />
           <MarkButton type="underline" />
           <ColorHighlightPopoverButton onClick={handleHighlighterClick} />
           <LinkButton onClick={handleLinkClick} />
         </ToolbarGroup>
         <ToolbarSeparator />
         <ToolbarGroup>
-          <ImageUploadButton text="+" />
+          <MarkButton type="superscript" />
+          <MarkButton type="subscript" />
+        </ToolbarGroup>
+        <ToolbarSeparator />
+        <ToolbarGroup>
+          <TextAlignButton align="left" />
+          <TextAlignButton align="center" />
+          <TextAlignButton align="right" />
+          <TextAlignButton align="justify" />
+        </ToolbarGroup>
+        <ToolbarSeparator />
+        <ToolbarGroup>
+          <TemplateButton text="Templates" />
+          <ImageUploadButton text="Add" />
+          <DocumentImportExport />
         </ToolbarGroup>
       </>
     )
@@ -280,7 +302,9 @@ const StaticMainToolbarContent = React.memo(() => {
       </ToolbarGroup>
       <ToolbarSeparator />
       <ToolbarGroup>
+        <TemplateButton text="Templates" />
         <ImageUploadButton text="Add" />
+        <DocumentImportExport />
       </ToolbarGroup>
       <Spacer />
     </>
@@ -403,7 +427,145 @@ export const SimpleEditor = React.memo(({
     }),
     TrailingNode,
     Link.configure({ openOnClick: false }),
+    DocumentConverterExtension.configure({
+      // Let the UI component handle all toast notifications
+      // to avoid duplicate toasts and stuck loading states
+    }),
   ], [])
+
+  // 🍎 iPad Photos App Drag & Drop Support
+  // Create drag and drop handlers for external image files
+  const handleDragOver = React.useCallback((view: any, event: DragEvent) => {
+    // Only handle if files are being dragged
+    if (!event.dataTransfer?.files?.length && !event.dataTransfer?.types?.includes('Files')) {
+      return false
+    }
+    
+    // Check if any dragged files are images
+    const hasImageFiles = Array.from(event.dataTransfer.items || []).some(item => 
+      item.type.startsWith('image/')
+    )
+    
+    if (hasImageFiles) {
+      event.preventDefault()
+      event.dataTransfer.dropEffect = 'copy'
+      
+      // Add visual feedback for drag over
+      const editorElement = view.dom as HTMLElement
+      editorElement.classList.add('drag-over-image')
+      
+      return true
+    }
+    
+    return false
+  }, [])
+
+  const handleDrop = React.useCallback((view: any, event: DragEvent) => {
+    const files = event.dataTransfer?.files
+    if (!files || files.length === 0) {
+      return false
+    }
+
+    // Filter for image files only
+    const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'))
+    
+    if (imageFiles.length === 0) {
+      return false
+    }
+
+    event.preventDefault()
+    
+    // Remove visual feedback
+    const editorElement = view.dom as HTMLElement
+    editorElement.classList.remove('drag-over-image')
+
+    // Get the drop position in the editor
+    const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })
+    if (!pos) {
+      console.warn('Could not determine drop position')
+      return true
+    }
+
+    // Handle async upload operations without blocking the handler
+    const processDroppedImages = async () => {
+      try {
+        // Process each image file
+        for (const file of imageFiles) {
+          // Validate file size
+          if (file.size > MAX_FILE_SIZE) {
+            toast.error(`Image "${file.name}" is too large`, {
+              description: `Maximum file size is ${MAX_FILE_SIZE / (1024 * 1024)}MB`,
+            })
+            continue
+          }
+
+          // Show upload progress toast
+          const uploadToast = toast.loading(`Uploading ${file.name}...`, {
+            description: 'Processing image from Photos app',
+          })
+
+          try {
+            // Upload the image using the same upload function
+            const imageUrl = await handleImageUpload(
+              file,
+              (progress) => {
+                toast.loading(`Uploading ${file.name}...`, {
+                  id: uploadToast,
+                  description: `Progress: ${progress.progress}%`,
+                })
+              }
+            )
+
+            // Insert the image at the drop position
+            const filename = file.name.replace(/\.[^/.]+$/, "") || "image"
+            
+            view.dispatch(
+              view.state.tr
+                .replaceWith(pos.pos, pos.pos, view.state.schema.nodes.image.create({
+                  src: imageUrl,
+                  alt: filename,
+                  title: filename,
+                }))
+                .scrollIntoView()
+            )
+
+            toast.success(`${file.name} uploaded successfully`, {
+              id: uploadToast,
+              description: 'Image added to your note',
+            })
+
+            console.log('🍎 iPad Photos app image uploaded successfully:', imageUrl)
+
+          } catch (error) {
+            console.error('Failed to upload image from Photos app:', error)
+            const errorMessage = error instanceof Error ? error.message : 'Upload failed'
+            
+            toast.error(`Failed to upload ${file.name}`, {
+              id: uploadToast,
+              description: errorMessage,
+            })
+          }
+        }
+      } catch (error) {
+        console.error('Error processing dropped images:', error)
+        toast.error('Failed to process dropped images', {
+          description: 'Please try using the image upload button instead',
+        })
+      }
+    }
+
+    // Start async processing without waiting for it
+    processDroppedImages()
+
+    return true
+  }, [])
+
+  const handleDragLeave = React.useCallback((view: any, event: DragEvent) => {
+    // Remove visual feedback when drag leaves
+    const editorElement = view.dom as HTMLElement
+    editorElement.classList.remove('drag-over-image')
+    return false
+  }, [])
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -421,14 +583,26 @@ export const SimpleEditor = React.memo(({
         "data-enable-grammarly": "false", // Disable Grammarly
         "aria-label": "Main content area, start typing to enter text.",
       },
-      // 🚀 OPTIMIZED: Block only non-essential events while keeping editor functional
+      // CRITICAL FIX: Disable ProseMirror's scroll management
+      // Let the content-wrapper handle all scrolling instead
+      // This prevents conflicts between ProseMirror and container scrolling
+      scrollThreshold: 0, // Disable ProseMirror scroll management
+      scrollMargin: 0,    // Disable ProseMirror scroll management
+      
+      // 🍎 COMPREHENSIVE DOM EVENT HANDLING
+      // Essential for iPad Photos app drag & drop functionality
       handleDOMEvents: {
-        // Block some input events but keep essential ones for editor functionality
-        // Note: Blocking too many events will break the editor entirely
-        scroll: () => false,  // Prevent expensive scroll calculations
-        // Keep focus/blur for basic editor functionality
-        // Keep mouse events for selection and interaction
-        // Keep composition events for international input
+        // Handle drag and drop for external image files (iPad Photos app)
+        dragover: handleDragOver,
+        drop: handleDrop,
+        dragleave: handleDragLeave,
+        dragenter: (view, event) => {
+          // Prevent default dragenter to enable dragover
+          if (event.dataTransfer?.types?.includes('Files')) {
+            event.preventDefault()
+          }
+          return false
+        }
       },
     },
     extensions,
@@ -625,10 +799,12 @@ export const SimpleEditor = React.memo(({
     }
   }, [editor, noteId, initialContent, noteUpdated])
 
-  const bodyRect = useCursorVisibility({
-    editor,
-    overlayHeight: toolbarRef.current?.getBoundingClientRect().height ?? 0,
-  })
+  // TEMPORARILY DISABLE cursor visibility to test if it's causing scroll issues
+  const bodyRect = { x: 0, y: 0, width: 0, height: 0 }
+  // const bodyRect = useCursorVisibility({
+  //   editor,
+  //   overlayHeight: toolbarRef.current?.getBoundingClientRect().height ?? 0,
+  // })
 
   // Cleanup on unmount
   React.useEffect(() => {

@@ -17,6 +17,31 @@
   transition-property: background, color, opacity;
   transition-duration: var(--tt-transition-duration-default);
   transition-timing-function: var(--tt-transition-easing-default);
+  cursor: pointer;
+
+  // Ensure all child elements inherit the cursor
+  * {
+    cursor: inherit;
+  }
+
+  // Loading state
+  &.cursor-wait,
+  &[data-loading="true"] {
+    cursor: wait !important;
+    
+    * {
+      cursor: wait !important;
+    }
+    
+    // Override any hover states during loading
+    &:hover {
+      cursor: wait !important;
+      
+      * {
+        cursor: wait !important;
+      }
+    }
+  }
 
   // focus-visible
   &:focus-visible {
@@ -299,6 +324,11 @@
   &:disabled {
     background-color: var(--tt-button-disabled-bg-color);
     color: var(--tt-button-disabled-text-color);
+    cursor: not-allowed;
+
+    * {
+      cursor: not-allowed;
+    }
 
     .tiptap-button-icon {
       color: var(--tt-button-disabled-icon-color);

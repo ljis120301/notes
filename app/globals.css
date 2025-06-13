@@ -366,38 +366,13 @@
   }
 
   .simple-editor-wrapper .content-wrapper {
-    height: calc(100% - var(--tt-toolbar-height));
-    overflow-y: auto;
+    /* Let ProseMirror handle scrolling natively */
+    position: relative;
     background-color: var(--tt-bg-color);
     
-    /* Performance optimizations */
-    contain: layout style paint; /* Aggressive containment */
+    /* Keep essential performance optimizations */
+    contain: layout style;
     transform: translateZ(0); /* Hardware acceleration */
-    will-change: scroll-position; /* Optimize for scrolling */
-    
-    /* Optimize scrolling performance */
-    scroll-behavior: auto; /* Disable smooth scrolling for better performance */
-    overscroll-behavior: contain; /* Prevent scroll chaining */
-  }
-
-  .simple-editor-wrapper .content-wrapper::-webkit-scrollbar {
-    display: block;
-    width: 0.5rem;
-  }
-
-  .simple-editor-wrapper .content-wrapper::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .simple-editor-wrapper .content-wrapper::-webkit-scrollbar-thumb {
-    background-color: var(--tt-scrollbar-color);
-    border-radius: 4px;
-  }
-
-  /* Firefox scrollbar */
-  .simple-editor-wrapper .content-wrapper {
-    scrollbar-width: thin;
-    scrollbar-color: var(--tt-scrollbar-color) transparent;
   }
 
   .simple-editor-wrapper .simple-editor-content {
