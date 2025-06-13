@@ -168,3 +168,109 @@ This editor provides a **seamless writing experience** that combines the best of
 ---
 
 The unified editor provides the fastest and most natural markdown editing experience while maintaining all the performance benefits and data safety of the original implementation.
+
+### 1. PocketBase Configuration
+
+#### Collection Rules for Public Sharing
+
+To enable public sharing with image access, you need to configure your PocketBase collection rules:
+
+1. Open PocketBase Admin UI (usually at `http://localhost:6969/_/`)
+2. Go to Collections → `notes`
+3. Click on the "API Rules" tab
+4. Update the rules as follows:
+
+**List Rule:**
+```
+@request.auth.id != "" || isPublic = true
+```
+
+**View Rule:**
+```
+@request.auth.id != "" || isPublic = true
+```
+
+**Create Rule:**
+```
+@request.auth.id != ""
+```
+
+**Update Rule:**
+```
+@request.auth.id != "" && (@request.auth.id = user || @request.auth.id = author)
+```
+
+**Delete Rule:**
+```
+@request.auth.id != "" && (@request.auth.id = user || @request.auth.id = author)
+```
+
+#### File Access Configuration
+
+For images in shared notes to be publicly accessible:
+
+1. In the `notes` collection, find any file fields (like image uploads)
+2. For each file field, check the "Protected" option
+3. The file access will automatically follow the collection's View rule
+
+This ensures that:
+- Private notes and their images require authentication
+- Public notes (where `isPublic = true`) and their images are accessible without authentication
+- Only authenticated users can create, update, or delete notes
+
+### 2. Environment Variables
+
+Create a `.env.local` file:
+
+```env
+NEXT_PUBLIC_POCKETBASE_URL=http://localhost:6969
+```
+
+### 3. Install Dependencies
+
+```bash
+npm install
+```
+
+### 4. Run Development Server
+
+```bash
+# Start PocketBase (in one terminal)
+cd pocketbase
+./pocketbase serve --dev
+
+# Start Next.js (in another terminal)
+npm run dev
+```
+
+## Public Sharing
+
+The public sharing feature allows users to:
+
+1. Click the Share button on any note
+2. Generate a public link using the note's existing ID
+3. Share the link with anyone
+4. Viewers can access the note without authentication
+5. Images and formatting are preserved in shared notes
+
+**Security Notes:**
+- Only notes explicitly marked as `isPublic = true` are accessible via public links
+- Private notes remain protected even if someone guesses the URL
+- File access follows the same rules as note access
+
+## Architecture
+
+- **Frontend:** Next.js 14 with App Router
+- **Backend:** PocketBase (SQLite + REST API)
+- **Editor:** Tiptap (rich text editor)
+- **UI:** Shadcn/ui components
+- **State:** TanStack Query + Zustand
+- **Styling:** Tailwind CSS
+
+## Development
+
+The app uses a simplified sharing system:
+- No separate UUID generation
+- Uses PocketBase's existing record IDs
+- Relies on `isPublic` boolean field for access control
+- Collection rules handle security automatically

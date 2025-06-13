@@ -155,6 +155,7 @@ export interface Note {
   updated?: string
   pinned?: boolean  // New field for pin functionality
   folder_id?: string  // New field for folder relationship
+  isPublic?: boolean;
 }
 
 export interface Folder {

@@ -1,19 +1,19 @@
 "use client"
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Note } from '@/lib/pocketbase'
-import { AppShell } from '@/components/app-shell'
-import { NotesSidebar } from './notes-sidebar'
-import { TemplateGallery } from '@/components/template-gallery'
-import { ProtectedRoute } from '@/components/protected-route'
-import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { LogOut } from 'lucide-react'
+import { useAuth } from '@/lib/auth-context'
 import { getNote } from '@/lib/notes-api'
-import NotesEditorWrapper from './notes-editor-wrapper'
+import { Note } from '@/lib/pocketbase'
+import { AppShell } from './app-shell'
+import { NotesSidebar } from './notes-sidebar'
+import { ProtectedRoute } from './protected-route'
 import { autoSetupTemplatesIfNeeded } from '@/lib/setup-templates'
-
+import { ShareNoteDialog } from './share-note-dialog'
+import NotesEditorWrapper from './notes-editor-wrapper'
+import { TemplateGallery } from './template-gallery'
 
 export function NotesApp() {
   const { user, logout } = useAuth()
@@ -174,6 +174,7 @@ export function NotesApp() {
 
   return (
     <ProtectedRoute>
+      <ShareNoteDialog />
       <AppShell
         sidebar={
           <NotesSidebar

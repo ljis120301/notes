@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, memo } from 'react'
 import { SimpleEditor } from './tiptap-templates/simple/simple-editor'
 import { Button } from '@/components/ui/button'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Share } from 'lucide-react'
 import { Note } from '@/lib/pocketbase'
 import { deleteNote } from '@/lib/notes-api'
 import { toast } from 'sonner'
@@ -11,6 +11,7 @@ import { useAutosave } from '@/hooks/use-autosave'
 import { useSimpleRealtimeSync } from '@/hooks/use-simple-realtime-sync'
 import { SyncStatusIndicator } from '@/components/sync-status-indicator'
 import { normalizeImageUrls } from '@/lib/pocketbase'
+import { useShareNote } from '@/hooks/use-share-note'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +41,7 @@ const NotesEditorWrapper = ({
   const [noteTitle, setNoteTitle] = useState(note.title || '')
   const [noteContent, setNoteContent] = useState(normalizeImageUrls(note.content || ''))
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const { onOpen } = useShareNote()
 
   // Get real-time sync status (this is working!)
   const realtimeSync = useSimpleRealtimeSync()
@@ -214,6 +216,14 @@ const NotesEditorWrapper = ({
         </div>
         
         <div className="flex gap-1 sm:gap-2 ml-2 sm:ml-4 flex-shrink-0">
+          <Button
+            size="sm"
+            variant="ghost"
+                            onClick={() => onOpen(note.id!, note.isPublic)}
+            className="h-8 w-8 sm:h-9 sm:w-9 p-0"
+          >
+            <Share className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          </Button>
           <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
             <AlertDialogTrigger asChild>
               <Button

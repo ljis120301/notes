@@ -1,4 +1,5 @@
 import { pb, Note, notesCollection, getRelativeFileUrl, normalizeImageUrls, Folder, foldersCollection } from './pocketbase'
+import PocketBase from 'pocketbase'
 
 // Helper function to ensure user is authenticated
 function ensureAuth() {
@@ -244,6 +245,85 @@ export async function searchNotes(query: string): Promise<Note[]> {
       }
     }
     throw error
+  }
+}
+
+export async function getNoteByPublicId(publicId: string): Promise<Note | null> {
+  console.log("[getNoteByPublicId] Searching for note with ID:", publicId);
+  try {
+    // For public notes, we don't need authentication - create a clean instance
+    const publicPb = new PocketBase(pb.baseUrl);
+    // Ensure no authentication is used for public access
+    publicPb.authStore.clear();
+    console.log("[getNoteByPublicId] Created clean PocketBase instance");
+    
+    // Use the publicId as the actual note ID and check if it's public
+    const record = await publicPb.collection(notesCollection).getOne(publicId);
+    
+    console.log("[getNoteByPublicId] Record found:", record ? "yes" : "no");
+    console.log("[getNoteByPublicId] Record isPublic:", record?.isPublic);
+    
+    // Check if the note is actually public
+    if (!record || !record.isPublic) {
+      console.log("[getNoteByPublicId] Note is not public or doesn't exist");
+      return null;
+    }
+
+    // For public notes with images, we need to handle file access
+    let processedContent = record.content || '';
+    
+    // Check if the content has images that need file tokens
+    const imagePattern = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+    const imageMatches = [...processedContent.matchAll(imagePattern)];
+    
+    if (imageMatches.length > 0) {
+      console.log("[getNoteByPublicId] Found", imageMatches.length, "images, processing file access...");
+      
+      // For public access, we need to use a different approach
+      // Since we can't generate file tokens without authentication,
+      // we'll need to transform the URLs to work with public access
+      
+      // Transform legacy image URLs in the note content
+      processedContent = normalizeImageUrls(processedContent);
+      
+      // For now, we'll rely on the collection rules being configured properly
+      // The admin needs to set the collection's file access rules to allow public access
+      // when isPublic = true
+    }
+
+    const noteWithFixedUrls = {
+      ...record,
+      content: processedContent
+    };
+    
+    console.log("[getNoteByPublicId] Returning note:", (noteWithFixedUrls as { title?: string }).title);
+    return noteWithFixedUrls as unknown as Note;
+  } catch (error: unknown) {
+    console.error("[getNoteByPublicId] Error fetching public note:", error);
+    
+    // Log more details about the error
+    if (error && typeof error === 'object') {
+      const errorObj = error as { message?: string; status?: number; data?: unknown };
+      console.error("[getNoteByPublicId] Error details:", {
+        message: errorObj.message,
+        status: errorObj.status,
+        data: errorObj.data
+      });
+    }
+    
+    if (isAutoCancelled(error)) {
+      console.log('Get note by public ID request was auto-cancelled');
+      throw new Error('Request cancelled');
+    }
+    
+    const err = error as { status?: number };
+    if (err.status === 404) {
+      console.log("[getNoteByPublicId] Note not found (404)");
+      return null; // Note not found is not an error here, just return null
+    }
+    
+    console.error('Failed to fetch note by public ID:', error);
+    return null;
   }
 }
 
