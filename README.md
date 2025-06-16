@@ -2,6 +2,8 @@
 
 A powerful notes application with real-time markdown rendering, built with Next.js, TypeScript, TanStack Query, and PocketBase.
 
+https://github.com/user-attachments/assets/bbcfb7fe-f781-49ba-a633-da69a7b9ff8b
+
 ## ✨ Features
 
 - **Real-time markdown rendering** - See formatted content as you type
@@ -62,13 +64,6 @@ npm run dev
 - **State Management**: TanStack Query
 - **UI Components**: shadcn/ui
 - **Backend**: PocketBase
-
-## 🔒 Security
-
-- Public sharing enabled via `isPublic` flag
-- Collection rules handle access control
-- File access follows note access permissions
-- Authentication required for private notes
 
 ## 📝 Environment Setup
 
