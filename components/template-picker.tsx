@@ -2,20 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { 
-  Search, 
-  FileText, 
-  Star,
-  Grid3X3,
-  List,
-  Clock,
-  User,
-  Globe,
-  BookOpen,
-  Users,
-  Briefcase,
-  Sparkles
-} from 'lucide-react'
+import {Search, FileText, Star, Grid3X3, List, Clock, User, Globe, BookOpen, Users, Briefcase, Sparkles} from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -48,7 +35,8 @@ import { Template } from '@/lib/pocketbase'
 import { 
   getTemplates, 
   incrementTemplateUsage,
-  setupDefaultTemplates 
+  autoSetupTemplatesIfNeeded,
+  DEFAULT_TEMPLATES,
 } from '@/lib/templates-api'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
@@ -59,6 +47,7 @@ const CATEGORY_ICONS = {
   'project': Briefcase, 
   'personal': User,
   'learning': BookOpen,
+  'general': FileText,
   'default': FileText
 } as const
 
@@ -236,12 +225,11 @@ export function TemplatePicker({ open, onOpenChange, onSelectTemplate }: Templat
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [showPublic, setShowPublic] = useState(false)
 
   // Setup default templates on first load
   useEffect(() => {
     if (open) {
-      setupDefaultTemplates().catch(error => {
+      autoSetupTemplatesIfNeeded().catch(error => {
         console.warn('Failed to setup default templates:', error)
       })
     }
@@ -253,17 +241,15 @@ export function TemplatePicker({ open, onOpenChange, onSelectTemplate }: Templat
     isLoading: isLoadingTemplates,
     error: templatesError
   } = useQuery({
-    queryKey: ['templates', selectedCategory, showPublic, searchQuery],
+    queryKey: ['templates', selectedCategory, searchQuery],
     queryFn: () => getTemplates({
       category: selectedCategory === 'all' ? undefined : selectedCategory,
-      isPublic: showPublic,
+      isPublic: true, // Always fetch both site and user templates
       search: searchQuery.trim() || undefined
     }),
     enabled: open,
     staleTime: 5 * 60 * 1000, // 5 minutes
   })
-
-
 
   // Template usage mutation
   const incrementUsageMutation = useMutation({
@@ -292,7 +278,7 @@ export function TemplatePicker({ open, onOpenChange, onSelectTemplate }: Templat
     }
   }, [onOpenChange, onSelectTemplate, incrementUsageMutation])
 
-  // Filter templates
+  // Filter and group templates
   const filteredTemplates = useMemo(() => {
     let filtered = templates
 
@@ -313,19 +299,21 @@ export function TemplatePicker({ open, onOpenChange, onSelectTemplate }: Templat
     }
 
     // Sort by usage count and updated date
-    return filtered.sort((a, b) => {
-      // First by usage count (descending)
+    const sorted = filtered.sort((a, b) => {
       const usageA = a.usage_count || 0
       const usageB = b.usage_count || 0
-      if (usageA !== usageB) {
-        return usageB - usageA
-      }
-      
-      // Then by updated date (descending)
+      if (usageA !== usageB) return usageB - usageA
       const dateA = a.updated ? new Date(a.updated).getTime() : 0
       const dateB = b.updated ? new Date(b.updated).getTime() : 0
       return dateB - dateA
     })
+
+    // Group into site and user templates based on name
+    const defaultTemplateNames = new Set(DEFAULT_TEMPLATES.map(t => t.name));
+    return {
+      site: sorted.filter(t => defaultTemplateNames.has(t.name)),
+      user: sorted.filter(t => !defaultTemplateNames.has(t.name))
+    }
   }, [templates, selectedCategory, searchQuery])
 
   // Get available categories from templates
@@ -406,19 +394,9 @@ export function TemplatePicker({ open, onOpenChange, onSelectTemplate }: Templat
 
           {/* Additional Filters */}
           <div className="flex items-center gap-4 mt-3">
-            <Button
-              variant={showPublic ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setShowPublic(!showPublic)}
-              className="h-8"
-            >
-              <Globe className="h-3 w-3 mr-1" />
-              Public Templates
-            </Button>
-            
-            {filteredTemplates.length > 0 && (
+            {(filteredTemplates.site.length + filteredTemplates.user.length) > 0 && (
               <span className="text-sm text-muted-foreground">
-                {filteredTemplates.length} template{filteredTemplates.length !== 1 ? 's' : ''} found
+                {filteredTemplates.site.length + filteredTemplates.user.length} template{filteredTemplates.site.length + filteredTemplates.user.length !== 1 ? 's' : ''} found
               </span>
             )}
           </div>
@@ -440,11 +418,12 @@ export function TemplatePicker({ open, onOpenChange, onSelectTemplate }: Templat
                 <div className="text-center py-8">
                   <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground mb-4">Failed to load templates</p>
+
                   <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['templates'] })}>
                     Try Again
                   </Button>
                 </div>
-              ) : filteredTemplates.length === 0 ? (
+              ) : (filteredTemplates.site.length + filteredTemplates.user.length) === 0 ? (
                 <div className="text-center py-8">
                   <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground mb-2">
@@ -466,26 +445,64 @@ export function TemplatePicker({ open, onOpenChange, onSelectTemplate }: Templat
                   )}
                 </div>
               ) : (
-                <div className="w-full overflow-hidden">
-                  <motion.div 
-                    layout
-                    className={`grid gap-4 w-full ${
-                      viewMode === 'grid' 
-                        ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' 
-                        : 'grid-cols-1'
-                    }`}
-                  >
-                    <AnimatePresence mode="popLayout">
-                      {filteredTemplates.map((template) => (
-                        <TemplateCard
-                          key={template.id}
-                          template={template}
-                          onSelect={handleSelectTemplate}
-                          viewMode={viewMode}
-                        />
-                      ))}
-                    </AnimatePresence>
-                  </motion.div>
+                <div className="w-full overflow-hidden space-y-6">
+                  {/* User Templates */}
+                  {filteredTemplates.user.length > 0 && (
+                    <section>
+                      <h2 className="text-lg font-semibold mb-3 flex items-center gap-2 text-foreground">
+                        <User className="h-5 w-5" />
+                        My Templates
+                      </h2>
+                      <motion.div 
+                        layout
+                        className={`grid gap-4 w-full ${
+                          viewMode === 'grid' 
+                            ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' 
+                            : 'grid-cols-1'
+                        }`}
+                      >
+                        <AnimatePresence mode="popLayout">
+                          {filteredTemplates.user.map((template) => (
+                            <TemplateCard
+                              key={template.id}
+                              template={template}
+                              onSelect={handleSelectTemplate}
+                              viewMode={viewMode}
+                            />
+                          ))}
+                        </AnimatePresence>
+                      </motion.div>
+                    </section>
+                  )}
+
+                  {/* Site Templates */}
+                  {filteredTemplates.site.length > 0 && (
+                    <section>
+                      <h2 className="text-lg font-semibold mb-3 flex items-center gap-2 text-foreground">
+                        <Globe className="h-5 w-5" />
+                        Site Templates
+                      </h2>
+                      <motion.div 
+                        layout
+                        className={`grid gap-4 w-full ${
+                          viewMode === 'grid' 
+                            ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' 
+                            : 'grid-cols-1'
+                        }`}
+                      >
+                        <AnimatePresence mode="popLayout">
+                          {filteredTemplates.site.map((template) => (
+                            <TemplateCard
+                              key={template.id}
+                              template={template}
+                              onSelect={handleSelectTemplate}
+                              viewMode={viewMode}
+                            />
+                          ))}
+                        </AnimatePresence>
+                      </motion.div>
+                    </section>
+                  )}
                 </div>
               )}
             </div>

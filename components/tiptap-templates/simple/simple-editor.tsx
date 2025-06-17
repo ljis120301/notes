@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
+import { EditorContent, EditorContext, useEditor, Editor } from "@tiptap/react"
 import { EditorView } from "@tiptap/pm/view"
 
 // --- Tiptap Core Extensions ---
@@ -17,6 +17,10 @@ import { Superscript } from "@tiptap/extension-superscript"
 import { Underline } from "@tiptap/extension-underline"
 import { TextStyle } from "@tiptap/extension-text-style"
 import { FontFamily } from "@tiptap/extension-font-family"
+import { Table } from "@tiptap/extension-table"
+import { TableRow } from "@tiptap/extension-table-row"
+import { TableHeader } from "@tiptap/extension-table-header"
+import { TableCell } from "@tiptap/extension-table-cell"
 
 // --- Custom Extensions ---
 import { Link } from "@/components/tiptap-extension/link-extension"
@@ -39,6 +43,7 @@ import "@/components/tiptap-node/code-block-node/code-block-node.scss"
 import "@/components/tiptap-node/list-node/list-node.scss"
 import "@/components/tiptap-node/image-node/image-node.scss"
 import "@/components/tiptap-node/paragraph-node/paragraph-node.scss"
+import "@/components/tiptap-node/table-node/table-node.scss"
 
 // --- Tiptap UI ---
 import { HeadingDropdownMenu } from "@/components/tiptap-ui/heading-dropdown-menu"
@@ -47,6 +52,7 @@ import { ImageUploadButton } from "@/components/tiptap-ui/image-upload-button"
 import { ListDropdownMenu } from "@/components/tiptap-ui/list-dropdown-menu"
 import { BlockQuoteButton } from "@/components/tiptap-ui/blockquote-button"
 import { CodeBlockButton } from "@/components/tiptap-ui/code-block-button"
+import { TableButton } from "@/components/tiptap-ui/table-button"
 import {
   ColorHighlightPopover,
   ColorHighlightPopoverContent,
@@ -61,7 +67,6 @@ import { MarkButton } from "@/components/tiptap-ui/mark-button"
 import { TextAlignButton } from "@/components/tiptap-ui/text-align-button"
 import { UndoRedoButton } from "@/components/tiptap-ui/undo-redo-button"
 import { TemplateButton } from "@/components/tiptap-ui/template-button"
-import { DocumentImportExport } from "@/components/tiptap-ui/document-import-export"
 
 // --- Icons ---
 import { ArrowLeftIcon } from "@/components/tiptap-icons/arrow-left-icon"
@@ -75,6 +80,7 @@ import { useWindowSize } from "@/hooks/use-window-size"
 // --- Lib ---
 import { handleImageUpload, MAX_FILE_SIZE } from "@/lib/tiptap-utils"
 import { toast } from "sonner"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
 // 🚀 ULTRA-FAST content similarity for performance-critical operations
 const calculateContentSimilarity = (content1: string, content2: string): number => {
@@ -123,6 +129,7 @@ import "@/components/tiptap-node/code-block-node/code-block-node.scss"
 import "@/components/tiptap-node/list-node/list-node.scss"
 import "@/components/tiptap-node/image-node/image-node.scss"
 import "@/components/tiptap-node/paragraph-node/paragraph-node.scss"
+import "@/components/tiptap-node/table-node/table-node.scss"
 import "@/components/tiptap-templates/simple/simple-editor.scss"
 
 interface SimpleEditorProps {
@@ -131,6 +138,10 @@ interface SimpleEditorProps {
   noteId?: string
   noteTitle?: string
   noteUpdated?: string // Add note timestamp for conflict resolution
+}
+
+export interface SimpleEditorRef {
+  editor: Editor | null
 }
 
 // 🚀 AGGRESSIVE Performance monitoring with INP tracking
@@ -229,6 +240,7 @@ const StaticMainToolbarContent = React.memo(() => {
           <ListDropdownMenu types={["bulletList", "orderedList", "taskList"]} />
           <BlockQuoteButton />
           <CodeBlockButton />
+          <TableButton />
         </ToolbarGroup>
         <ToolbarSeparator />
         <ToolbarGroup>
@@ -256,7 +268,6 @@ const StaticMainToolbarContent = React.memo(() => {
         <ToolbarGroup>
           <TemplateButton text="Templates" />
           <ImageUploadButton text="Add" />
-          <DocumentImportExport />
         </ToolbarGroup>
       </>
     )
@@ -265,48 +276,53 @@ const StaticMainToolbarContent = React.memo(() => {
   // Desktop full toolbar
   return (
     <>
-      <Spacer />
-      <ToolbarGroup>
-        <UndoRedoButton action="undo" />
-        <UndoRedoButton action="redo" />
-      </ToolbarGroup>
-      <ToolbarSeparator />
-      <ToolbarGroup>
-        <HeadingDropdownMenu levels={[1, 2, 3, 4]} />
-        <FontFamilyDropdownMenu />
-        <ListDropdownMenu types={["bulletList", "orderedList", "taskList"]} />
-        <BlockQuoteButton />
-        <CodeBlockButton />
-      </ToolbarGroup>
-      <ToolbarSeparator />
-      <ToolbarGroup>
-        <MarkButton type="bold" />
-        <MarkButton type="italic" />
-        <MarkButton type="strike" />
-        <MarkButton type="code" />
-        <MarkButton type="underline" />
-        <ColorHighlightPopover />
-        <LinkPopover />
-      </ToolbarGroup>
-      <ToolbarSeparator />
-      <ToolbarGroup>
-        <MarkButton type="superscript" />
-        <MarkButton type="subscript" />
-      </ToolbarGroup>
-      <ToolbarSeparator />
-      <ToolbarGroup>
-        <TextAlignButton align="left" />
-        <TextAlignButton align="center" />
-        <TextAlignButton align="right" />
-        <TextAlignButton align="justify" />
-      </ToolbarGroup>
-      <ToolbarSeparator />
-      <ToolbarGroup>
-        <TemplateButton text="Templates" />
-        <ImageUploadButton text="Add" />
-        <DocumentImportExport />
-      </ToolbarGroup>
-      <Spacer />
+      <ScrollArea className="w-full whitespace-nowrap">
+        <div className="flex justify-center items-center p-2">
+          <Spacer />
+          <ToolbarGroup>
+            <UndoRedoButton action="undo" />
+            <UndoRedoButton action="redo" />
+          </ToolbarGroup>
+          <ToolbarSeparator />
+          <ToolbarGroup>
+            <HeadingDropdownMenu levels={[1, 2, 3, 4]} />
+            <FontFamilyDropdownMenu />
+            <ListDropdownMenu types={["bulletList", "orderedList", "taskList"]} />
+            <BlockQuoteButton />
+            <CodeBlockButton />
+            <TableButton />
+          </ToolbarGroup>
+          <ToolbarSeparator />
+          <ToolbarGroup>
+            <MarkButton type="bold" />
+            <MarkButton type="italic" />
+            <MarkButton type="strike" />
+            <MarkButton type="code" />
+            <MarkButton type="underline" />
+            <ColorHighlightPopover />
+            <LinkPopover />
+          </ToolbarGroup>
+          <ToolbarSeparator />
+          <ToolbarGroup>
+            <MarkButton type="superscript" />
+            <MarkButton type="subscript" />
+          </ToolbarGroup>
+          <ToolbarSeparator />
+          <ToolbarGroup>
+            <TextAlignButton align="left" />
+            <TextAlignButton align="center" />
+            <TextAlignButton align="right" />
+            <TextAlignButton align="justify" />
+          </ToolbarGroup>
+          <ToolbarSeparator />
+          <ToolbarGroup>
+            <TemplateButton text="Templates" />
+            <ImageUploadButton text="Add" />
+          </ToolbarGroup>
+          <Spacer />
+        </div>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
     </>
   )
 })
@@ -333,12 +349,12 @@ StaticMainToolbarContent.displayName = "StaticMainToolbarContent"
 //
 // 🎯 TARGET: INP <200ms (down from 300ms+)
 //
-export const SimpleEditor = React.memo(({ 
+export const SimpleEditor = React.memo(React.forwardRef<SimpleEditorRef, SimpleEditorProps>(({ 
   initialContent = '', 
   onContentChange,
   noteId,
   noteUpdated
-}: SimpleEditorProps) => {
+}, ref) => {
   const isMobile = useMobile()
   const windowSize = useWindowSize()
   const toolbarRef = React.useRef<HTMLDivElement>(null)
@@ -383,6 +399,12 @@ export const SimpleEditor = React.memo(({
         newGroupDelay: 3000, // Longer grouping for better performance
       },
     }),
+    Table.configure({
+      resizable: true,
+    }),
+    TableRow,
+    TableHeader,
+    TableCell,
     TextAlign.configure({ types: ["heading", "paragraph"] }),
     Underline,
     TaskList,
@@ -612,6 +634,10 @@ export const SimpleEditor = React.memo(({
       debouncedContentChange(editor.getHTML())
     },
   })
+
+  React.useImperativeHandle(ref, () => ({
+    editor,
+  }), [editor])
 
   // Track the last known remote timestamp for conflict detection
   const lastRemoteTimestampRef = React.useRef<string | undefined>(noteUpdated)
@@ -871,7 +897,7 @@ export const SimpleEditor = React.memo(({
       </EditorContext.Provider>
     </div>
   )
-}, (prevProps, nextProps) => {
+}), (prevProps, nextProps) => {
   // Smart memo: Allow re-renders when noteId changes (note switching) OR content/timestamp changes from real-time sync
   // But prevent unnecessary re-renders for other prop changes
   return prevProps.noteId === nextProps.noteId && 

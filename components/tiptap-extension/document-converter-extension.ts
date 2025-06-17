@@ -6,8 +6,8 @@ import { saveAs } from 'file-saver'
 declare module "@tiptap/react" {
   interface Commands<ReturnType> {
     documentConverter: {
-      exportDocument: (format: 'pdf' | 'docx' | 'markdown' | 'html' | 'json') => ReturnType
-      importDocument: (file: File) => ReturnType
+      exportDocument: (format: 'pdf' | 'docx' | 'markdown' | 'html' | 'json') => any
+      importDocument: (file: File) => any
     }
   }
 }
@@ -989,53 +989,53 @@ export const DocumentConverterExtension = Extension.create<DocumentConverterOpti
 
   addCommands() {
     return {
-      exportDocument:
-        (format: 'pdf' | 'docx' | 'markdown' | 'html' | 'json') =>
-        () => {
-          const converter = this.storage.converter as DocumentConverter
-          if (!converter) return false
-
-          try {
-            switch (format) {
-              case 'pdf':
-                converter.exportToPDF()
-                break
-              case 'docx':
-                converter.exportToDOCX()
-                break
-              case 'markdown':
-                converter.exportToMarkdown()
-                break
-              case 'html':
-                converter.exportToHTML()
-                break
-              case 'json':
-                converter.exportToJSON()
-                break
-              default:
-                return false
-            }
-            return true
-          } catch (error) {
-            console.error('Export failed:', error)
-            return false
-          }
-        },
-
-      importDocument:
-        (file: File) =>
-        () => {
-          const converter = this.storage.converter as DocumentConverter
-          if (!converter) return false
-
-          try {
-            converter.importFromFile(file)
-            return true
-          } catch (error) {
-            console.error('Import failed:', error)
-            return false
-          }
+      exportDocument: (format: 'pdf' | 'docx' | 'markdown' | 'html' | 'json') => async ({ editor }: { editor: Editor }) => {
+        const converter = this.storage.converter as DocumentConverter
+        if (!converter) {
+            this.storage.converter = new DocumentConverter(editor, this.options as DocumentConverterOptions)
         }
+        
+        try {
+          switch (format) {
+            case 'pdf':
+              await this.storage.converter.exportToPDF()
+              break
+            case 'docx':
+              await this.storage.converter.exportToDOCX()
+              break
+            case 'markdown':
+              await this.storage.converter.exportToMarkdown()
+              break
+            case 'html':
+              await this.storage.converter.exportToHTML()
+              break
+            case 'json':
+              await this.storage.converter.exportToJSON()
+              break
+            default:
+              console.warn(`Unsupported export format: ${format}`)
+              return false
+          }
+          return true
+        } catch (error) {
+          console.error(`Export failed for format: ${format}`, error)
+          return false
+        }
+      },
+      importDocument: (file: File) => async ({ editor }: { editor: Editor }) => {
+        const converter = this.storage.converter as DocumentConverter
+        if (!converter) {
+            this.storage.converter = new DocumentConverter(editor, this.options as DocumentConverterOptions)
+        }
+
+        try {
+          await this.storage.converter.importFromFile(file)
+          return true
+        } catch (error) {
+          console.error('Import failed:', error)
+          return false
+        }
+      }
     }
   }
 })

@@ -110,7 +110,7 @@ export function AppShell({ children, sidebar, userActions, onLogoClick }: AppShe
                 setSidebarOpen(!sidebarOpen)
               }, 50)
             }}
-            className="h-9 w-9 lg:hidden"
+            className="h-9 w-9"
             aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
           >
             {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
