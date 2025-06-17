@@ -18,8 +18,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Search, FileText, Sparkles, Plus, Clock, User, Tag, Eye } from 'lucide-react'
-import { getTemplates, incrementTemplateUsage } from '@/lib/templates-api'
+import { Search, FileText, Sparkles, Plus, Clock, User, Tag, Eye, Globe } from 'lucide-react'
+import { getTemplates, incrementTemplateUsage, DEFAULT_TEMPLATES } from '@/lib/templates-api'
 import { Template, Note } from '@/lib/pocketbase'
 import { createNote } from '@/lib/notes-api'
 import { toast } from 'sonner'
@@ -205,9 +205,10 @@ export function TemplateGallery({ onCreateNote }: TemplateGalleryProps) {
     template.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
   )
 
-  // Group templates by category
+  // Group templates by their name to correctly categorize legacy templates.
+  const defaultTemplateNames = new Set(DEFAULT_TEMPLATES.map(t => t.name));
   const groupedTemplates = filteredTemplates.reduce((groups, template) => {
-    const category = template.category || 'Other'
+    const category = defaultTemplateNames.has(template.name) ? 'Site Templates' : 'My Templates'
     if (!groups[category]) {
       groups[category] = []
     }
@@ -387,9 +388,16 @@ export function TemplateGallery({ onCreateNote }: TemplateGalleryProps) {
             <div className="space-y-8">
               {Object.entries(groupedTemplates).map(([category, categoryTemplates]) => (
                 <div key={category}>
-                  <h2 className="text-xl font-semibold mb-4 capitalize text-foreground">
-                    {category}
-                  </h2>
+                  <div className="flex items-center gap-3 mb-4">
+                    {category === 'Site Templates' ? (
+                      <Globe className="h-6 w-6 text-muted-foreground" />
+                    ) : (
+                      <User className="h-6 w-6 text-muted-foreground" />
+                    )}
+                    <h2 className="text-2xl font-semibold text-foreground tracking-tight">
+                      {category}
+                    </h2>
+                  </div>
                   <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                     {categoryTemplates.map((template) => (
                       <Card 

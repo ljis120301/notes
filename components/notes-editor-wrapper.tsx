@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo, memo } from 'react'
-import { SimpleEditor } from './tiptap-templates/simple/simple-editor'
+import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react'
+import { SimpleEditor, SimpleEditorRef } from './tiptap-templates/simple/simple-editor'
 import { Button } from '@/components/ui/button'
-import { Trash2, Share } from 'lucide-react'
+import { Trash2, Share, FileText, Download, Upload, ChevronDown, FolderOpen, CheckCircle } from 'lucide-react'
 import { Note } from '@/lib/pocketbase'
 import { deleteNote } from '@/lib/notes-api'
 import { toast } from 'sonner'
@@ -23,8 +23,30 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Menubar,
+  MenubarContent,
+  MenubarItem,
+  MenubarMenu,
+  MenubarSeparator,
+  MenubarSub,
+  MenubarSubContent,
+  MenubarSubTrigger,
+  MenubarTrigger,
+} from "@/components/ui/menubar"
 import { DocumentSizeIndicator } from '@/components/document-size-indicator'
 import { Input } from '@/components/ui/input'
+import { Progress } from '@/components/ui/progress'
+import { SaveAsTemplateDialog } from '@/components/save-as-template-dialog'
+import { cn } from '@/lib/utils'
 
 interface NotesEditorWrapperProps {
   note: Note
@@ -32,6 +54,8 @@ interface NotesEditorWrapperProps {
   onDelete: (noteId: string) => void
   onTitleChange: (title: string) => void
 }
+
+type ExportFormat = 'pdf' | 'docx' | 'markdown' | 'html' | 'json'
 
 // Memoized component to prevent unnecessary re-renders
 const NotesEditorWrapper = ({ 
@@ -43,7 +67,88 @@ const NotesEditorWrapper = ({
   const [noteTitle, setNoteTitle] = useState(note.title || '')
   const [noteContent, setNoteContent] = useState(normalizeImageUrls(note.content || ''))
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [saveAsTemplateOpen, setSaveAsTemplateOpen] = useState(false)
   const { onOpen } = useShareNote()
+  const editorRef = useRef<SimpleEditorRef>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isExporting, setIsExporting] = useState(false)
+
+  // Import/Export states
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
+  const [importProgress, setImportProgress] = useState(0)
+  const [isImporting, setIsImporting] = useState(false)
+  const [dragActive, setDragActive] = useState(false)
+
+  const handleExport = useCallback(async (format: ExportFormat) => {
+    const editor = editorRef.current?.editor
+    if (!editor) {
+      toast.error('Editor not available')
+      return
+    }
+    setIsExporting(true)
+    document.body.classList.add('cursor-wait')
+    try {
+      await editor.commands.exportDocument(format)
+      toast.success(`Document exported as ${format.toUpperCase()}`)
+    } catch (error) {
+      toast.error('Export failed')
+      console.error(error)
+    } finally {
+      setIsExporting(false)
+      document.body.classList.remove('cursor-wait')
+    }
+  }, [])
+
+  const handleFileSelect = useCallback(async (files: FileList | null) => {
+    const editor = editorRef.current?.editor
+    if (!files || files.length === 0 || !editor) return
+
+    const file = files[0]
+    setIsImporting(true)
+    setImportProgress(0)
+    setIsImportDialogOpen(true)
+
+    const toastId = `import-${Date.now()}`
+    
+    try {
+      toast.loading(`Importing ${file.name}...`, { id: toastId })
+      setImportProgress(10)
+      
+      const success = editor.commands.importDocument(file)
+
+      if (!success) {
+        throw new Error('Import command failed')
+      }
+      // Simulate import progress
+      let currentProgress = 20
+      const progressInterval = setInterval(() => {
+        currentProgress += Math.random() * 10
+        if (currentProgress > 90) {
+          currentProgress = 90
+        }
+        setImportProgress(currentProgress)
+      }, 200)
+
+      setTimeout(() => {
+        clearInterval(progressInterval)
+        setImportProgress(100)
+        toast.success(`Imported ${file.name}`, { id: toastId, duration: 3000 })
+        setTimeout(() => {
+          setIsImportDialogOpen(false)
+          setIsImporting(false)
+        }, 1000)
+      }, 2000)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      toast.error(`Import failed: ${message}`, { id: toastId, duration: 5000 })
+      setIsImporting(false)
+      setIsImportDialogOpen(false)
+    }
+  }, [])
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click()
+  }
 
   // Get real-time sync status (this is working!)
   const realtimeSync = useSimpleRealtimeSync()
@@ -235,83 +340,152 @@ const NotesEditorWrapper = ({
             type="text"
             value={noteTitle}
             onChange={(e) => handleTitleChange(e.target.value)}
-            className="max-w-md text-lg font-semibold sm:text-xl"
+            className="max-w-md text-lg font-semibold sm:text-xl border-none frappe:border"
             placeholder="Note title..."
           />
-          <div className="flex items-center justify-between mt-2">
-            {/* Sync status indicator with real-time capabilities */}
-            <div className="flex-1 min-w-0">
-              <SyncStatusIndicator
-                syncResult={combinedSyncStatus}
-                className="flex items-center gap-2"
-                showDetails={false} // Use compact mode for header
-              />
-            </div>
-            
-            {/* Document size indicator - positioned on the right side */}
-            <div className="flex items-center gap-2 sm:gap-3 ml-2 flex-shrink-0">
-              <DocumentSizeIndicator
-                title={noteTitle}
-                content={noteContent}
-                className="hidden sm:flex" // Hide on mobile to save space
-                showDetails={true}
-              />
-              
-              {/* Additional info for development */}
-              {process.env.NODE_ENV === 'development' && (
-                <span className="text-xs text-muted-foreground hidden sm:inline">
-                  {autosaveResult.status.retryCount > 0 && `Retry ${autosaveResult.status.retryCount}/5`}
-                  {!realtimeSync.isConnected && ` | Real-time: disconnected`}
-                </span>
-              )}
-            </div>
-          </div>
         </div>
         
-        <div className="flex gap-1 sm:gap-2 ml-2 sm:ml-4 flex-shrink-0">
-          <Button
-            size="sm"
-            variant="ghost"
-                            onClick={() => onOpen(note.id!, note.isPublic)}
-            className="h-8 w-8 sm:h-9 sm:w-9 p-0"
-          >
-            <Share className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          </Button>
-          <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-            <AlertDialogTrigger asChild>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="text-destructive hover:text-destructive h-8 w-8 sm:h-9 sm:w-9 p-0"
-              >
-                <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Note</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Are you sure you want to delete &quot;{noteTitle || 'Untitled'}&quot;? This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleDelete}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+        <div className="flex items-center gap-2 sm:gap-3 ml-2 flex-shrink-0">
+          <SyncStatusIndicator
+            syncResult={combinedSyncStatus}
+            className="flex items-center gap-2"
+            showDetails={false}
+          />
+          <DocumentSizeIndicator
+            title={noteTitle}
+            content={noteContent}
+            className="hidden sm:flex"
+            showDetails={true}
+          />
+           {process.env.NODE_ENV === 'development' && (
+              <span className="text-xs text-muted-foreground hidden sm:inline">
+                {autosaveResult.status.retryCount > 0 && `Retry ${autosaveResult.status.retryCount}/5`}
+                {!realtimeSync.isConnected && ` | Real-time: disconnected`}
+              </span>
+            )}
         </div>
+      </div>
+      
+      <div className="border-b bg-background px-2">
+        <Menubar className="border-none rounded-none">
+          <MenubarMenu>
+            <MenubarTrigger>File</MenubarTrigger>
+            <MenubarContent>
+              <MenubarItem onClick={() => onOpen(note.id!, note.isPublic)}>
+                <Share className="h-4 w-4 mr-2" />
+                Share
+              </MenubarItem>
+              <MenubarItem onClick={() => setSaveAsTemplateOpen(true)} disabled={!note.id}>
+                <FileText className="h-4 w-4 mr-2" />
+                Save as Template
+              </MenubarItem>
+              <MenubarSeparator />
+              <MenubarItem onClick={handleImportClick}>
+                <Upload className="h-4 w-4 mr-2" />
+                Import...
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={(e) => handleFileSelect(e.target.files)}
+                  className="hidden"
+                  accept=".docx,.md,.markdown,.html,.htm,.json,.txt"
+                />
+              </MenubarItem>
+              <MenubarSub>
+                <MenubarSubTrigger disabled={isExporting}>
+                  <Download className="h-4 w-4 mr-2" />
+                  {isExporting ? 'Exporting...' : 'Export As'}
+                </MenubarSubTrigger>
+                <MenubarSubContent>
+                  <MenubarItem onClick={() => handleExport('pdf')}>PDF</MenubarItem>
+                  <MenubarItem onClick={() => handleExport('docx')}>Word (DOCX)</MenubarItem>
+                  <MenubarItem onClick={() => handleExport('markdown')}>Markdown</MenubarItem>
+                  <MenubarItem onClick={() => handleExport('html')}>HTML</MenubarItem>
+                  <MenubarItem onClick={() => handleExport('json')}>JSON</MenubarItem>
+                </MenubarSubContent>
+              </MenubarSub>
+              <MenubarSeparator />
+              <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <AlertDialogTrigger asChild>
+                  <MenubarItem variant="destructive" onSelect={(e) => e.preventDefault()}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </MenubarItem>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Note</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete &quot;{noteTitle || 'Untitled'}&quot;? This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDelete}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </MenubarContent>
+          </MenubarMenu>
+          <MenubarMenu>
+            <MenubarTrigger>Edit</MenubarTrigger>
+            <MenubarContent>
+              <MenubarItem onClick={() => editorRef.current?.editor?.commands.undo()}>
+                Undo
+              </MenubarItem>
+              <MenubarItem onClick={() => editorRef.current?.editor?.commands.redo()}>
+                Redo
+              </MenubarItem>
+            </MenubarContent>
+          </MenubarMenu>
+        </Menubar>
       </div>
 
       {/* Editor */}
       <div className="flex-1 bg-background overflow-hidden">
-        <SimpleEditor key={note.id} {...editorProps} />
+        <SimpleEditor key={note.id} ref={editorRef} {...editorProps} />
       </div>
+      <SaveAsTemplateDialog
+        open={saveAsTemplateOpen}
+        onOpenChange={setSaveAsTemplateOpen}
+        noteTitle={noteTitle}
+        noteContent={noteContent}
+      />
+       <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Importing Document</DialogTitle>
+            <DialogDescription>
+              Please wait while your document is being imported.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            {isImporting ? (
+              <div className="flex flex-col gap-2">
+                <Progress value={importProgress} />
+                <span className="text-sm text-center text-muted-foreground">
+                  {importProgress.toFixed(0)}%
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center gap-2 text-green-600">
+                <CheckCircle className="h-6 w-6" />
+                <span>Import Successful</span>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setIsImportDialogOpen(false)} disabled={isImporting}>
+              {isImporting ? 'Importing...' : 'Done'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

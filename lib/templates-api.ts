@@ -308,7 +308,7 @@ export const DEFAULT_TEMPLATES: Omit<Template, 'id' | 'created' | 'updated' | 'u
 <h2>📝 Next Steps</h2>
 <p>[Summary of next steps...]</p>`,
     tags: ['meeting', 'business', 'collaboration'],
-    is_public: false
+    is_public: true
   },
   {
     name: 'Project Plan',
@@ -391,7 +391,7 @@ export const DEFAULT_TEMPLATES: Omit<Template, 'id' | 'created' | 'updated' | 'u
   <li>[Criteria 3]</li>
 </ul>`,
     tags: ['project', 'planning', 'management'],
-    is_public: false
+    is_public: true
   },
   {
     name: 'Daily Journal',
@@ -444,7 +444,7 @@ export const DEFAULT_TEMPLATES: Omit<Template, 'id' | 'created' | 'updated' | 'u
 <h2>💭 Free Thoughts</h2>
 <p>[Any other thoughts, ideas, or feelings to capture...]</p>`,
     tags: ['personal', 'reflection', 'daily'],
-    is_public: false
+    is_public: true
   },
   {
     name: 'Weekly Review',
@@ -534,7 +534,7 @@ export const DEFAULT_TEMPLATES: Omit<Template, 'id' | 'created' | 'updated' | 'u
 <h2>💭 Reflections</h2>
 <p>[Any additional thoughts, insights, or observations about the week...]</p>`,
     tags: ['personal', 'weekly', 'review', 'planning'],
-    is_public: false
+    is_public: true
   },
   {
     name: 'Book Notes',
@@ -617,7 +617,7 @@ export const DEFAULT_TEMPLATES: Omit<Template, 'id' | 'created' | 'updated' | 'u
 <h2>💭 Personal Reflection</h2>
 <p>[What did this book mean to you? How did it change your perspective?]</p>`,
     tags: ['learning', 'books', 'notes'],
-    is_public: false
+    is_public: true
   },
   {
     name: 'Research Notes',
@@ -732,7 +732,7 @@ export const DEFAULT_TEMPLATES: Omit<Template, 'id' | 'created' | 'updated' | 'u
   <li data-type="taskItem" data-checked="false"><p>[Analysis to complete]</p></li>
 </ul>`,
     tags: ['research', 'academic', 'analysis'],
-    is_public: false
+    is_public: true
   }
 ]
 
@@ -765,33 +765,63 @@ export const DEFAULT_CATEGORIES: Omit<TemplateCategory, 'id' | 'created' | 'upda
 
 export async function setupDefaultTemplates(): Promise<void> {
   try {
-    // Check if user already has templates
-    const existingTemplates = await getTemplates()
-    if (existingTemplates.length > 0) {
-      return // User already has templates, don't add defaults
+    // This setup should run only once. Check if default categories or templates already exist.
+    const checkCategories = await pb.collection(templateCategoriesCollection).getList(1, 1, { filter: 'is_public=true' });
+    const checkTemplates = await pb.collection(templatesCollection).getList(1, 1, { filter: 'is_public=true' });
+
+    if (checkCategories.totalItems > 0 || checkTemplates.totalItems > 0) {
+      console.log('Default public templates/categories already exist.');
+      return;
     }
 
-    // Create default categories first
+    console.log('Setting up default public templates and categories...');
+
+    // Create default categories first, without a user relation
     const categoryPromises = DEFAULT_CATEGORIES.map(category => 
-      createTemplateCategory(category).catch(error => {
-        console.warn('Failed to create default category:', category.name, error)
+      pb.collection(templateCategoriesCollection).create({ ...category, is_public: true })
+      .catch(error => {
+        // It's possible another request is doing this at the same time. Ignore unique name errors.
+        if (!error.message?.includes('unique')) {
+          console.warn('Failed to create default category:', category.name, error)
+        }
         return null
       })
-    )
-    await Promise.all(categoryPromises)
+    );
+    await Promise.all(categoryPromises);
 
-    // Create default templates
+    // Create default templates, without a user relation
     const templatePromises = DEFAULT_TEMPLATES.map(template => 
-      createTemplate(template).catch(error => {
-        console.warn('Failed to create default template:', template.name, error)
+      pb.collection(templatesCollection).create(template) // is_public is already true
+      .catch(error => {
+        if (!error.message?.includes('unique')) {
+          console.warn('Failed to create default template:', template.name, error)
+        }
         return null
       })
-    )
-    await Promise.all(templatePromises)
+    );
+    await Promise.all(templatePromises);
 
-    console.log('Default templates and categories created successfully')
+    console.log('Default public templates and categories should now be available.');
   } catch (error) {
-    console.warn('Failed to setup default templates:', error)
+    console.warn('Failed to setup default templates:', error);
     // Don't throw error - this is not critical functionality
+  }
+}
+
+export async function autoSetupTemplatesIfNeeded() {
+  try {
+    // We run this without checking, setupDefaultTemplates now checks for existence.
+    await setupDefaultTemplates()
+  } catch (error) {
+    console.error('Auto-setup failed:', error)
+    
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    if (errorMessage.includes('404') || errorMessage.includes('collection')) {
+      console.warn('Templates collections not found - they need to be created in PocketBase admin')
+    } else if (errorMessage.includes('401') || errorMessage.includes('403')) {
+      console.warn('Authentication or permission error setting up templates')
+    } else {
+      console.warn('Unknown error during template setup:', errorMessage)
+    }
   }
 } 

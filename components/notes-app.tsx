@@ -10,7 +10,7 @@ import { Note } from '@/lib/pocketbase'
 import { AppShell } from './app-shell'
 import { NotesSidebar } from './notes-sidebar'
 import { ProtectedRoute } from './protected-route'
-import { autoSetupTemplatesIfNeeded } from '@/lib/setup-templates'
+import { autoSetupTemplatesIfNeeded } from '@/lib/templates-api'
 import { autoSetupProfilesIfNeeded } from '@/lib/setup-profiles'
 import { ShareNoteDialog } from './share-note-dialog'
 import NotesEditorWrapper from './notes-editor-wrapper'
@@ -66,6 +66,8 @@ export function NotesApp() {
       startTransition(() => {
         setSelectedNoteId(note.id!)
       })
+      // Refresh sidebar to show the newly created note
+      sidebarRef.current?.refreshNotes()
     }
   }, [queryClient, startTransition])
 

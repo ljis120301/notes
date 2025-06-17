@@ -173,15 +173,21 @@ const useToolbarVisibility = (
     const toolbar = ref.current
     if (!toolbar) return
 
-    // Check if any group has visible children
-    const hasVisibleChildren = Array.from(toolbar.children).some((child) => {
-      if (!(child instanceof HTMLElement)) return false
-      if (child.getAttribute("role") === "group") {
-        return child.children.length > 0
-      }
-      return false
-    })
+    let hasVisibleChildren = false;
+    const scrollArea = toolbar.querySelector('[data-slot="scroll-area"]')
 
+    if (scrollArea) {
+      const viewport = scrollArea.querySelector('[data-slot="scroll-area-viewport"]')
+      hasVisibleChildren = !!viewport && viewport.children.length > 0
+    } else {
+      hasVisibleChildren = Array.from(toolbar.children).some((child) => {
+        if (!(child instanceof HTMLElement)) return false
+        if (child.getAttribute("role") === "group") {
+          return child.children.length > 0
+        }
+        return false
+      })
+    }
     setIsVisible(hasVisibleChildren)
   }, [ref])
 
