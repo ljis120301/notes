@@ -24,6 +24,11 @@
       filter: brightness(140%);
       mix-blend-mode: lighten;
     }
+
+    .frappe & {
+      filter: brightness(120%);
+      mix-blend-mode: lighten;
+    }
   }
 }
 
@@ -42,6 +47,16 @@
         &::after {
           // Andere Eigenschaft für .dark Kontext
           filter: brightness(180%);
+        }
+      }
+    }
+  }
+
+  .frappe & {
+    &[data-active-state="on"] {
+      .tiptap-button-highlight {
+        &::after {
+          filter: brightness(150%);
         }
       }
     }

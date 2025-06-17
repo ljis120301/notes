@@ -16,12 +16,12 @@
   }
 
   .frappe & {
-    --tt-inline-code-bg-color: var(--tt-gray-frappe-a-100);
-    --tt-inline-code-text-color: var(--tt-gray-frappe-a-700);
-    --tt-inline-code-border-color: var(--tt-gray-frappe-a-200);
+    --tt-inline-code-bg-color: #51576d; // Catppuccin surface1 - visible background
+    --tt-inline-code-text-color: #c6d0f5; // Catppuccin text - consistent with blocks
+    --tt-inline-code-border-color: #626880; // Catppuccin surface2 - visible border
     --tt-codeblock-bg: #414559; // Catppuccin surface0
     --tt-codeblock-text: #c6d0f5; // Catppuccin text
-    --tt-codeblock-border: var(--tt-gray-frappe-a-200);
+    --tt-codeblock-border: #626880; // Catppuccin surface2 - consistent border
   }
 }
 

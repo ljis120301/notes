@@ -17,12 +17,11 @@ export function ProtectedRoute({ children, fallback }: ProtectedRouteProps) {
   const router = useRouter()
   const [redirectAttempted, setRedirectAttempted] = useState(false)
 
-  // Debug logging
-  console.log('🛡️ ProtectedRoute - loading:', loading, 'isAuthenticated:', isAuthenticated)
+  // Only log auth state during initial load or significant changes
+  // Removed excessive debug logging that was causing performance issues
 
   // Redirect to auth if not authenticated
   useEffect(() => {
-    console.log('🛡️ ProtectedRoute useEffect - loading:', loading, 'isAuthenticated:', isAuthenticated)
     if (!loading && !isAuthenticated && !redirectAttempted) {
       console.log('🚀 ProtectedRoute: Attempting redirect to /auth')
       setRedirectAttempted(true)

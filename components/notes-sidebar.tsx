@@ -1,25 +1,25 @@
 "use client"
 
-import { useState, useMemo, forwardRef, useImperativeHandle, useCallback, useEffect } from 'react'
+import { useState, useMemo, forwardRef, useImperativeHandle, useCallback, useEffect, memo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Search, FileText, Plus, Pin, Folder, FolderOpen, FolderPlus, Edit3, Trash2, ChevronRight } from 'lucide-react'
+import { Search, FileText, Plus, Pin, Folder, FolderOpen, FolderPlus, Edit3, Trash2, ChevronRight, Check, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { 
-  ContextMenu, 
-  ContextMenuContent, 
-  ContextMenuItem, 
-  ContextMenuTrigger, 
-  ContextMenuSeparator 
-} from '@/components/ui/context-menu'
+import {ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from '@/components/ui/context-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Card, CardContent } from '@/components/ui/card'
-import { Note, Folder as FolderType } from '@/lib/pocketbase'
-import { getNotes, searchNotes, createNote, pinNote, unpinNote, getFolders, createFolder, updateFolder, deleteFolder, moveNoteToFolder, toggleFolderExpanded } from '@/lib/notes-api'
+import { Checkbox } from '@/components/ui/checkbox'
+import {AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+import { Input } from '@/components/ui/input'
+import { Note, Folder as FolderType, Profile } from '@/lib/pocketbase'
+import { getNotes, searchNotes, createNote, pinNote, unpinNote, getFolders, createFolder, updateFolder, deleteFolder, moveNoteToFolder, toggleFolderExpanded, bulkDeleteNotes, getNotesByProfile, createNoteInProfile, getNote } from '@/lib/notes-api'
+import { ProfileSelector } from '@/components/profile-selector'
+import { useProfile } from '@/lib/profile-context'
 
 import { formatDistanceToNow } from 'date-fns'
 import { pb } from '@/lib/pocketbase'
+import { useVirtualizer } from '@tanstack/react-virtual'
 
 interface NotesSidebarProps {
   selectedNote: Note | null
@@ -53,6 +53,25 @@ function stripHtmlTags(html: string): string {
   const textContent = tempDiv.textContent || tempDiv.innerText || ''
   // Clean up multiple spaces and line breaks
   return textContent.replace(/\s+/g, ' ').trim()
+}
+
+// Ultra-lightweight tag stripper for quick preview – avoids DOM allocations
+function quickStrip(html: string): string {
+  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+// Lightweight preview cache to avoid recomputing strip/regex on every mount
+const previewCache = new Map<string, { raw: string; preview: string }>()
+
+function getPreview(noteId: string | undefined, html: string | undefined): string {
+  if (!noteId || !html) return 'No content'
+  const cached = previewCache.get(noteId)
+  if (cached && cached.raw === html) return cached.preview
+  const plain = quickStrip(html)
+  const max = typeof window === 'undefined' || window.innerWidth < 768 ? 45 : 60
+  const preview = plain.length > max ? plain.slice(0, max) + '...' : plain
+  previewCache.set(noteId, { raw: html, preview })
+  return preview
 }
 
 // Smart sort function: Pinned notes first, then preserve original chronological order for unpinned notes
@@ -135,7 +154,8 @@ function NoteSkeleton() {
 // Note item component with context menu and drag/drop support
 interface NoteItemProps {
   note: Note
-  selectedNote: Note | null
+  /** Whether this note is the currently active (opened) note */
+  isActive: boolean
   onSelectNote: (note: Note) => void
   onTogglePin: (note: Note, event: React.MouseEvent) => void
   onMoveToFolder: (noteId: string, folderId: string | null) => void
@@ -143,199 +163,235 @@ interface NoteItemProps {
   pinNoteMutation: { isPending: boolean }
   unpinNoteMutation: { isPending: boolean }
   isInFolder?: boolean
+  // Edit mode props
+  isEditMode?: boolean
+  isSelected?: boolean
+  onSelectionChange?: (noteId: string, checked: boolean) => void
 }
 
-function NoteItem({ 
+const NoteItem = memo(function NoteItem({ 
   note, 
-  selectedNote, 
+  isActive,
   onSelectNote, 
   onTogglePin, 
   onMoveToFolder, 
   folders,
   pinNoteMutation,
   unpinNoteMutation,
-  isInFolder = false
+  isInFolder = false,
+  isEditMode = false,
+  isSelected = false,
+  onSelectionChange
 }: NoteItemProps) {
+  const queryClient = useQueryClient()
+
+  // Prefetch note data on hover for instant open
+  const handleMouseEnter = useCallback(() => {
+    if (note.id) {
+      queryClient.prefetchQuery({
+        queryKey: ['note', note.id],
+        queryFn: () => getNote(note.id!)
+      })
+    }
+  }, [note.id, queryClient])
+
+  // Memoised preview text & relative date – heavy ops only when data changes
+  const previewText = useMemo(() => getPreview(note.id, note.content), [note.id, note.content])
+
+  const relativeUpdated = useMemo(() => {
+    return note.updated
+      ? formatDistanceToNow(new Date(note.updated), { addSuffix: true })
+      : 'Just now'
+  }, [note.updated])
+
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div
-          draggable={true}
-          data-note-id={note.id}
-          onDragStart={(e: React.DragEvent) => {
-            if (note.id) {
-              e.dataTransfer.setData('text/plain', note.id)
-              e.dataTransfer.effectAllowed = 'move'
-              // Add visual class for drag state
-              e.currentTarget.classList.add('dragging')
-            }
-          }}
-          onDragEnd={(e: React.DragEvent) => {
-            // Remove drag visual state
-            e.currentTarget.classList.remove('dragging')
-          }}
-          className="draggable-note"
-        >
-          <motion.div
-            key={note.id}
-            layout
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ 
-              opacity: 1, 
-              y: 0, 
-              scale: 1,
-              zIndex: (note.pinned && !isInFolder) ? 10 : 1
+    <>
+      <style jsx>{`
+        .note-card-wrapper,
+        .note-card-wrapper :global(*) {
+          cursor: pointer;
+        }
+
+        /* Allow buttons within the card to have their own cursor behavior */
+        .note-card-wrapper :global(button),
+        .note-card-wrapper :global(button *) {
+          cursor: auto;
+        }
+
+        .note-card-wrapper.dragging,
+        .note-card-wrapper.dragging :global(*) {
+          cursor: grabbing !important;
+        }
+      `}</style>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div
+            draggable={true}
+            data-note-id={note.id}
+            onDragStart={(e: React.DragEvent) => {
+              if (note.id) {
+                e.dataTransfer.setData('text/plain', note.id)
+                e.dataTransfer.effectAllowed = 'move'
+                // Add visual class for drag state
+                e.currentTarget.classList.add('dragging')
+              }
             }}
-            exit={{ 
-              opacity: 0, 
-              y: -20, 
-              scale: 0.95,
-              transition: { duration: 0.2 }
+            onDragEnd={(e: React.DragEvent) => {
+              // Remove drag visual state
+              e.currentTarget.classList.remove('dragging')
             }}
-            whileHover={{
-              y: (note.pinned && !isInFolder) ? -4 : -2,
-              scale: 1.02,
-              transition: { duration: 0.15, ease: "easeOut" }
-            }}
-            transition={{
-              layout: { 
-                duration: 0.4, 
-                ease: "easeInOut",
-                type: "spring",
-                stiffness: 300,
-                damping: 30
-              },
-              default: { duration: 0.3, ease: "easeOut" }
-            }}
-            onClick={() => onSelectNote(note)}
-            className={`motion-div group cursor-pointer rounded-xl flex items-center backdrop-blur-sm h-16 relative transition-all duration-200 ${
+            className={`note-card-wrapper motion-div group rounded-xl flex items-center h-16 relative transition-transform duration-150 ${
               note.pinned && !isInFolder
                 ? 'bg-sidebar-primary/15 border border-sidebar-primary/40 shadow-lg'
-                : selectedNote?.id === note.id
+                : isActive
                 ? 'bg-sidebar-primary/20 border border-sidebar-primary/30 shadow-md'
                 : 'bg-sidebar-muted/50 border border-sidebar-border/50'
-            } cursor-grab active:cursor-grabbing hover:shadow-lg`}
+            } hover:shadow-lg hover:-translate-y-[2px] hover:scale-[1.02]`}
             style={{
               boxShadow: (note.pinned && !isInFolder) ? '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' : undefined
             }}
+            onMouseEnter={handleMouseEnter}
+            onClick={() => {
+              if (isEditMode) {
+                onSelectionChange?.(note.id!, !isSelected)
+              } else {
+                onSelectNote(note)
+              }
+            }}
           >
-          {/* File Icon */}
-          <div className={`w-10 h-10 ml-3 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
-            note.pinned && !isInFolder
-              ? 'bg-sidebar-primary/40 shadow-md'
-              : 'bg-sidebar-primary/25'
-          }`}>
-            <FileText className={`h-5 w-5 transition-colors duration-300 ${
-              (note.pinned && !isInFolder) ? 'text-sidebar-primary' : 'text-sidebar-primary/80'
-            }`} />
-          </div>
-          
-          {/* Content */}
-          <div className="flex-1 ml-3 mr-3 min-w-0 text-sidebar-foreground">
-            {/* Title and Pin Row */}
-            <div className="flex items-center justify-between mb-0.5">
-              <div className="flex items-center space-x-1.5 min-w-0 flex-1">
-                <span className="font-semibold text-sm truncate leading-tight">
-                  {note.title || 'Untitled'}
-                </span>
+            {/* Selection Checkbox (in edit mode) */}
+            {isEditMode && (
+              <div className="ml-3 flex items-center justify-center flex-shrink-0">
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={(checked) => {
+                    onSelectionChange?.(note.id!, !!checked)
+                  }}
+                  className="h-4 w-4"
+                />
               </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-[10px] text-sidebar-foreground/50 whitespace-nowrap">
-                  {note.updated ? formatDistanceToNow(new Date(note.updated), { addSuffix: true }) : 'Just now'}
-                </span>
-                {!isInFolder && (
-                  <Tooltip delayDuration={300}>
-                    <TooltipTrigger asChild>
-                      <div 
-                        className="relative"
-                        onMouseEnter={(e) => e.stopPropagation()}
-                        onMouseLeave={(e) => e.stopPropagation()}
-                      >
-                        <motion.div
-                          whileTap={{ scale: 0.9 }}
-                          whileHover={{ scale: 1.1 }}
-                          transition={{ duration: 0.1 }}
-                        >
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={`h-6 w-6 p-0 transition-all duration-200 flex-shrink-0 hover:bg-sidebar-accent/50 rounded ${
-                              note.pinned ? 'opacity-80 hover:opacity-100' : 'opacity-40 group-hover:opacity-80 hover:opacity-100'
-                            }`}
-                            onClick={(event) => onTogglePin(note, event)}
-                            disabled={pinNoteMutation.isPending || unpinNoteMutation.isPending}
-                          >
-                            <motion.div
-                              animate={{ 
-                                rotate: note.pinned ? 25 : 0,
-                                scale: note.pinned ? 1.1 : 1
-                              }}
-                              transition={{ duration: 0.2, ease: "easeOut" }}
-                            >
-                              <Pin 
-                                className={`h-4 w-4 transition-all duration-200 ${
-                                  note.pinned 
-                                    ? 'text-sidebar-primary hover:text-red-500' 
-                                    : 'text-sidebar-foreground/60 hover:text-sidebar-primary'
-                                }`}
-                                fill={note.pinned ? 'currentColor' : 'none'}
-                              />
-                            </motion.div>
-                          </Button>
-                        </motion.div>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="left" className="pointer-events-none">
-                      {note.pinned ? 'Unpin note' : 'Pin note'}
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-              </div>
+            )}
+            
+            {/* File Icon */}
+            <div className={`w-10 h-10 ${isEditMode ? 'ml-2' : 'ml-3'} rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
+              note.pinned && !isInFolder
+                ? 'bg-sidebar-primary/40 shadow-md'
+                : 'bg-sidebar-primary/25'
+            }`}>
+              <FileText className={`h-5 w-5 transition-colors duration-300 ${
+                (note.pinned && !isInFolder) ? 'text-sidebar-primary' : 'text-sidebar-primary/80'
+              }`} />
             </div>
             
-            {/* Content Preview */}
-            <div className="text-xs text-sidebar-foreground/70 truncate leading-tight">
-              {note.content ? 
-                (() => {
-                  const plainText = stripHtmlTags(note.content)
-                  const maxLength = window.innerWidth < 768 ? 45 : 60
-                  return plainText.length > maxLength 
-                    ? plainText.substring(0, maxLength) + '...' 
-                    : plainText
-                })()
-                : 'No content'
-              }
+            {/* Content */}
+            <div className="flex-1 ml-3 mr-3 min-w-0 text-sidebar-foreground">
+              {/* Title and Pin Row */}
+              <div className="flex items-center justify-between mb-0.5">
+                <div className="flex items-center space-x-1.5 min-w-0 flex-1">
+                  <span className="font-semibold text-sm truncate leading-tight">
+                    {note.title || 'Untitled'}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-[10px] text-sidebar-foreground/50 whitespace-nowrap">
+                    {relativeUpdated}
+                  </span>
+                  {!isInFolder && (
+                    <Tooltip delayDuration={300}>
+                      <TooltipTrigger asChild>
+                        <div 
+                          className="relative"
+                          onMouseEnter={(e) => e.stopPropagation()}
+                          onMouseLeave={(e) => e.stopPropagation()}
+                        >
+                          <motion.div
+                            whileTap={{ scale: 0.9 }}
+                            whileHover={{ scale: 1.1 }}
+                            transition={{ duration: 0.1 }}
+                          >
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`pin-button h-6 w-6 p-0 transition-opacity duration-200 flex-shrink-0 hover:bg-sidebar-accent/50 rounded ${
+                                note.pinned ? 'opacity-80 hover:opacity-100' : 'opacity-40 hover:opacity-80'
+                              }`}
+                              onClick={(event) => onTogglePin(note, event)}
+                              disabled={pinNoteMutation.isPending || unpinNoteMutation.isPending}
+                            >
+                              <motion.div
+                                animate={{ 
+                                  rotate: note.pinned ? 25 : 0,
+                                  scale: note.pinned ? 1.1 : 1
+                                }}
+                                transition={{ duration: 0.2, ease: "easeOut" }}
+                              >
+                                <Pin 
+                                  className={`h-4 w-4 transition-all duration-200 ${
+                                    note.pinned 
+                                      ? 'text-sidebar-primary hover:text-red-500' 
+                                      : 'text-sidebar-foreground/60 hover:text-sidebar-primary'
+                                  }`}
+                                  fill={note.pinned ? 'currentColor' : 'none'}
+                                />
+                              </motion.div>
+                            </Button>
+                          </motion.div>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="pointer-events-none">
+                        {note.pinned ? 'Unpin note' : 'Pin note'}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
+              </div>
+              
+              {/* Content Preview */}
+              <div className="text-xs text-sidebar-foreground/70 truncate leading-tight">
+                {previewText}
+              </div>
             </div>
-                                    </div>
-        </motion.div>
-        </div>
-      </ContextMenuTrigger>
-      <ContextMenuContent>
-        {!isInFolder && (
-          <>
-            <ContextMenuItem onClick={(e) => { e.stopPropagation(); onTogglePin(note, e); }}>
-              <Pin className="h-4 w-4 mr-2" />
-              {note.pinned ? 'Unpin Note' : 'Pin Note'}
-            </ContextMenuItem>
-            <ContextMenuSeparator />
-          </>
-        )}
-        <ContextMenuItem onClick={() => onMoveToFolder(note.id!, null)}>
-          <FileText className="h-4 w-4 mr-2" />
-          Move to Root
-        </ContextMenuItem>
-        {folders.map((folder) => (
-          <ContextMenuItem 
-            key={folder.id} 
-            onClick={() => onMoveToFolder(note.id!, folder.id!)}
-            disabled={note.folder_id === folder.id}
-          >
-            <Folder className="h-4 w-4 mr-2" />
-            Move to {folder.name}
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          {!isInFolder && (
+            <>
+              <ContextMenuItem onClick={(e) => { e.stopPropagation(); onTogglePin(note, e); }}>
+                <Pin className="h-4 w-4 mr-2" />
+                {note.pinned ? 'Unpin Note' : 'Pin Note'}
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+            </>
+          )}
+          <ContextMenuItem onClick={() => onMoveToFolder(note.id!, null)}>
+            <FileText className="h-4 w-4 mr-2" />
+            Move to Root
           </ContextMenuItem>
-        ))}
-      </ContextMenuContent>
-    </ContextMenu>
+          {folders.map((f) => (
+            <ContextMenuItem
+              key={f.id}
+              onClick={() => onMoveToFolder(note.id!, f.id!)}
+              disabled={note.folder_id === f.id}
+            >
+              <Folder className="h-4 w-4 mr-2" />
+              Move to {f.name}
+            </ContextMenuItem>
+          ))}
+        </ContextMenuContent>
+      </ContextMenu>
+    </>
+  )
+}, areEqualNoteItem)
+
+function areEqualNoteItem(prev: NoteItemProps, next: NoteItemProps) {
+  return (
+    prev.note === next.note &&
+    prev.isActive === next.isActive &&
+    prev.isInFolder === next.isInFolder &&
+    prev.isEditMode === next.isEditMode &&
+    prev.isSelected === next.isSelected &&
+    prev.pinNoteMutation.isPending === next.pinNoteMutation.isPending &&
+    prev.unpinNoteMutation.isPending === next.unpinNoteMutation.isPending
   )
 }
 
@@ -423,8 +479,7 @@ function FolderItem({
             )}
             
             {editingFolderId === folder.id ? (
-              <input
-                type="text"
+              <Input
                 value={editingFolderName}
                 onChange={(e) => setEditingFolderName(e.target.value)}
                 onBlur={() => onSaveRename(folder.id!)}
@@ -435,7 +490,7 @@ function FolderItem({
                     onCancelRename()
                   }
                 }}
-                className="flex-1 text-sm font-medium bg-transparent border-none outline-none focus:ring-0 text-sidebar-foreground"
+                className="flex-1 h-7 text-sm font-medium bg-background/60"
                 autoFocus
                 onClick={(e) => e.stopPropagation()}
               />
@@ -520,6 +575,69 @@ function RootDropZone({ onMoveNoteToFolder }: { onMoveNoteToFolder: (noteId: str
   )
 }
 
+// ---------- Local folder expanded persistence helpers ----------
+function getExpandedKey(userId?: string) {
+  return `folder_expanded_${userId || 'anonymous'}`
+}
+
+function loadExpandedMap(userId?: string): Record<string, boolean> {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(getExpandedKey(userId)) : null
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
+
+function saveExpandedMap(userId: string | undefined, map: Record<string, boolean>) {
+  try {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(getExpandedKey(userId), JSON.stringify(map))
+    }
+  } catch {}
+}
+
+// ---------- Virtualized list wrapper to render large note arrays efficiently ----------
+interface VirtualizedNoteListProps {
+  notes: Note[]
+  render: (note: Note) => React.ReactNode
+}
+
+function VirtualizedNoteList({ notes, render }: VirtualizedNoteListProps) {
+  const parentRef = useRef<HTMLDivElement | null>(null)
+
+  const rowVirtualizer = useVirtualizer({
+    count: notes.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 72, // typical row height incl. margin
+    overscan: 8,
+  })
+
+  return (
+    <div ref={parentRef} className="relative overflow-y-auto overflow-x-hidden max-h-full">
+      <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative' }}>
+        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+          const note = notes[virtualRow.index]
+          return (
+            <div
+              key={note.id}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                transform: `translateY(${virtualRow.start}px)`
+              }}
+            >
+              {render(note)}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
   ({ selectedNote, onSelectNote, onCreateNote, isAuthenticated = false }, ref) => {
     const queryClient = useQueryClient()
@@ -528,31 +646,44 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
     const [editingFolderName, setEditingFolderName] = useState('')
     // Keep track of original note positions to restore them when unpinning
     const [originalNotesOrder, setOriginalNotesOrder] = useState<Note[]>([])
+    
+    // Edit mode and bulk selection state
+    const [isEditMode, setIsEditMode] = useState(false)
+    const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set())
+    const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
 
-    // Use React Query for notes list
+    // Profile context
+    const { selectedProfile, setSelectedProfile } = useProfile()
+
+    // Map of folderId -> expanded (local only)
+    const [folderExpandedMap, setFolderExpandedMap] = useState<Record<string, boolean>>(() =>
+      loadExpandedMap(pb.authStore.model?.id)
+    )
+
+    // Use React Query for notes list - unified cache key with client-side filtering
     const { 
       data: notes = [], 
       isLoading, 
       error, 
       refetch 
     } = useQuery({
-      queryKey: ['notes'],
-      queryFn: getNotes,
+      queryKey: ['notes-by-profile', selectedProfile?.id || 'no-profile'],
+      queryFn: () => getNotesByProfile(selectedProfile?.id || null),
       enabled: isAuthenticated && pb.authStore.isValid,
-      staleTime: 2 * 60 * 1000, // 2 minutes
-      gcTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 1 * 60 * 1000, // 1 minute (shorter for profile switches)
+      gcTime: 3 * 60 * 1000, // 3 minutes
     })
 
-    // Use React Query for folders list
+    // Use React Query for folders list - unified cache key with client-side filtering
     const { 
       data: folders = [], 
       refetch: refetchFolders 
     } = useQuery({
-      queryKey: ['folders'],
-      queryFn: getFolders,
+      queryKey: ['folders-by-profile', selectedProfile?.id || 'no-profile'],
+      queryFn: () => getFolders(selectedProfile?.id),
       enabled: isAuthenticated && pb.authStore.isValid,
-      staleTime: 2 * 60 * 1000, // 2 minutes
-      gcTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 1 * 60 * 1000, // 1 minute (shorter for profile switches)
+      gcTime: 3 * 60 * 1000, // 3 minutes
     })
 
     // Update original order when notes are first loaded
@@ -572,15 +703,12 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
     const createNoteMutation = useMutation({
       mutationFn: async (templateContent?: string) => {
         const content = templateContent || '<h1>New Note</h1><p>Start writing your note here...</p>'
-        const newNote = await createNote('Untitled Note', content)
+        const newNote = await createNote('Untitled Note', content, selectedProfile?.id)
         return newNote
       },
       onSuccess: (newNote) => {
-        // Add to cache immediately with animation-friendly structure
-        queryClient.setQueryData(['notes'], (oldNotes: Note[] = []) => {
-          const updatedNotes = [newNote, ...oldNotes]
-          return smartSortNotes(updatedNotes, originalNotesOrder)
-        })
+        // Invalidate and refetch profile-specific cache
+        queryClient.invalidateQueries({ queryKey: ['notes-by-profile', selectedProfile?.id || 'no-profile'] })
         queryClient.setQueryData(['note', newNote.id], newNote)
         // Update original order to include the new note at the beginning
         setOriginalNotesOrder(prev => [newNote, ...prev])
@@ -597,11 +725,8 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
     const pinNoteMutation = useMutation({
       mutationFn: pinNote,
       onSuccess: (updatedNote) => {
-        // Update the notes list in cache with proper sorting
-        queryClient.setQueryData(['notes'], (oldNotes: Note[] = []) => {
-          const updatedNotes = oldNotes.map(note => note.id === updatedNote.id ? updatedNote : note)
-          return smartSortNotes(updatedNotes, originalNotesOrder) // Apply smart sorting to maintain correct order
-        })
+        // Invalidate cache to refetch with new pin status
+        queryClient.invalidateQueries({ queryKey: ['notes-by-profile', selectedProfile?.id || 'no-profile'] })
         // Update the individual note cache
         queryClient.setQueryData(['note', updatedNote.id], updatedNote)
       },
@@ -616,11 +741,8 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
     const unpinNoteMutation = useMutation({
       mutationFn: unpinNote,
       onSuccess: (updatedNote) => {
-        // Update the notes list in cache with smart sorting to restore original position
-        queryClient.setQueryData(['notes'], (oldNotes: Note[] = []) => {
-          const updatedNotes = oldNotes.map(note => note.id === updatedNote.id ? updatedNote : note)
-          return smartSortNotes(updatedNotes, originalNotesOrder) // Apply smart sorting to restore unpinned note to its original timeline position
-        })
+        // Invalidate cache to refetch with new pin status
+        queryClient.invalidateQueries({ queryKey: ['notes-by-profile', selectedProfile?.id || 'no-profile'] })
         // Update the individual note cache
         queryClient.setQueryData(['note', updatedNote.id], updatedNote)
       },
@@ -634,12 +756,10 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
     // Create folder mutation
     const createFolderMutation = useMutation({
       mutationFn: async (name: string) => {
-        return await createFolder(name)
+        return await createFolder(name, selectedProfile?.id)
       },
       onSuccess: (newFolder) => {
-        queryClient.setQueryData(['folders'], (oldFolders: FolderType[] = []) => {
-          return [...oldFolders, newFolder].sort((a, b) => a.name.localeCompare(b.name))
-        })
+        queryClient.invalidateQueries({ queryKey: ['folders-by-profile', selectedProfile?.id || 'no-profile'] })
       },
       onError: (error: unknown) => {
         if (!isAutoCancelled(error)) {
@@ -654,11 +774,7 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
         return await updateFolder(id, data)
       },
       onSuccess: (updatedFolder) => {
-        queryClient.setQueryData(['folders'], (oldFolders: FolderType[] = []) => {
-          return oldFolders.map(folder => 
-            folder.id === updatedFolder.id ? updatedFolder : folder
-          ).sort((a, b) => a.name.localeCompare(b.name))
-        })
+        queryClient.invalidateQueries({ queryKey: ['folders-by-profile', selectedProfile?.id || 'no-profile'] })
       },
       onError: (error: unknown) => {
         if (!isAutoCancelled(error)) {
@@ -671,9 +787,7 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
     const deleteFolderMutation = useMutation({
       mutationFn: deleteFolder,
       onSuccess: (_, deletedFolderId) => {
-        queryClient.setQueryData(['folders'], (oldFolders: FolderType[] = []) => {
-          return oldFolders.filter(folder => folder.id !== deletedFolderId)
-        })
+        queryClient.invalidateQueries({ queryKey: ['folders-by-profile', selectedProfile?.id || 'no-profile'] })
         // Refresh notes to show any that were moved out of the deleted folder
         refetch()
       },
@@ -690,9 +804,7 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
         return await moveNoteToFolder(noteId, folderId)
       },
       onSuccess: (updatedNote) => {
-        queryClient.setQueryData(['notes'], (oldNotes: Note[] = []) => {
-          return oldNotes.map(note => note.id === updatedNote.id ? updatedNote : note)
-        })
+        queryClient.invalidateQueries({ queryKey: ['notes-by-profile', selectedProfile?.id || 'no-profile'] })
         queryClient.setQueryData(['note', updatedNote.id], updatedNote)
       },
       onError: (error: unknown) => {
@@ -702,22 +814,70 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
       }
     })
 
-    // Toggle folder expanded mutation
-    const toggleFolderExpandedMutation = useMutation({
-      mutationFn: async ({ id, expanded }: { id: string, expanded: boolean }) => {
-        return await toggleFolderExpanded(id, expanded)
-      },
-      onSuccess: (updatedFolder) => {
-        queryClient.setQueryData(['folders'], (oldFolders: FolderType[] = []) => {
-          return oldFolders.map(folder => 
-            folder.id === updatedFolder.id ? updatedFolder : folder
-          )
+    // Toggle folder expanded local handler (no server write)
+    const handleToggleFolder = useCallback(
+      (folder: FolderType) => {
+        setFolderExpandedMap((prev) => {
+          const newMap = { ...prev, [folder.id!]: !prev[folder.id!] }
+          saveExpandedMap(pb.authStore.model?.id, newMap)
+          return newMap
         })
+        // Update cache so UI re-renders without refetch
+        queryClient.setQueryData<FolderType[]>(
+          ['folders-by-profile', selectedProfile?.id || 'no-profile'],
+          (old) => old?.map((f) => (f.id === folder.id ? { ...f, expanded: !f.expanded } : f)) || []
+        )
+      },
+      [queryClient, selectedProfile?.id]
+    )
+
+    // Bulk delete mutation
+    const bulkDeleteMutation = useMutation({
+      mutationFn: async (noteIds: string[]) => {
+        return await bulkDeleteNotes(noteIds)
+      },
+      onSuccess: (result) => {
+        // Invalidate cache to refetch without deleted notes
+        queryClient.invalidateQueries({ queryKey: ['notes-by-profile', selectedProfile?.id || 'no-profile'] })
+        
+        // Remove from individual caches
+        result.success.forEach(noteId => {
+          queryClient.removeQueries({ queryKey: ['note', noteId] })
+        })
+        
+        // Update original order to remove deleted notes
+        setOriginalNotesOrder(prev => prev.filter(note => !result.success.includes(note.id!)))
+        
+        // Clear selection and exit edit mode
+        setSelectedNoteIds(new Set())
+        setIsEditMode(false)
+        setBulkDeleteDialogOpen(false)
+        
+        // If currently selected note was deleted, clear selection
+        if (selectedNote?.id && result.success.includes(selectedNote.id)) {
+          // Find the first remaining note to select
+          const remainingNotes = notes.filter(note => !result.success.includes(note.id!))
+          if (remainingNotes.length > 0) {
+            onSelectNote(remainingNotes[0])
+          }
+        }
+        
+        // Show success message
+        const totalRequested = selectedNoteIds.size
+        const successCount = result.success.length
+        const failedCount = result.failed.length
+        
+        if (failedCount === 0) {
+          console.log(`Successfully deleted ${successCount} note${successCount !== 1 ? 's' : ''}`)
+        } else {
+          console.log(`Deleted ${successCount}/${totalRequested} notes. ${failedCount} failed.`)
+        }
       },
       onError: (error: unknown) => {
         if (!isAutoCancelled(error)) {
-          console.error('Error toggling folder:', error)
+          console.error('Error bulk deleting notes:', error)
         }
+        setBulkDeleteDialogOpen(false)
       }
     })
 
@@ -772,16 +932,6 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
       const folderName = `New Folder ${folders.length + 1}`
       createFolderMutation.mutate(folderName)
     }, [createFolderMutation, folders.length])
-
-    const handleToggleFolder = useCallback((folder: FolderType) => {
-      if (!folder.id || toggleFolderExpandedMutation.isPending) {
-        return
-      }
-      toggleFolderExpandedMutation.mutate({ 
-        id: folder.id, 
-        expanded: !folder.expanded 
-      })
-    }, [toggleFolderExpandedMutation])
 
     const handleRenameFolder = useCallback((folderId: string, currentName: string) => {
       setEditingFolderId(folderId)
@@ -880,6 +1030,66 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
       }
     }, [searchQuery, searchResults, notes, folders, originalNotesOrder])
 
+    // Reset edit mode when switching profiles to prevent stale state
+    useEffect(() => {
+      setIsEditMode(false)
+      setSelectedNoteIds(new Set())
+    }, [selectedProfile?.id])
+
+    // Edit mode and selection handlers (defined after organizedData)
+    const handleToggleEditMode = useCallback(() => {
+      setIsEditMode(prev => {
+        if (prev) {
+          // Exiting edit mode, clear selections
+          setSelectedNoteIds(new Set())
+        }
+        return !prev
+      })
+    }, [])
+
+    const handleSelectNote = useCallback((noteId: string, checked: boolean) => {
+      setSelectedNoteIds(prev => {
+        const newSet = new Set(prev)
+        if (checked) {
+          newSet.add(noteId)
+        } else {
+          newSet.delete(noteId)
+        }
+        return newSet
+      })
+    }, [])
+
+    const handleSelectAll = useCallback((checked: boolean) => {
+      if (checked) {
+        // Select all visible notes
+        const visibleNotes = searchQuery.trim() 
+          ? (searchResults || [])
+          : organizedData.standaloneNotes.concat(
+              Array.from(organizedData.notesInFolders.values()).flat()
+            )
+        setSelectedNoteIds(new Set(visibleNotes.map(note => note.id!).filter(Boolean)))
+      } else {
+        setSelectedNoteIds(new Set())
+      }
+    }, [searchQuery, searchResults, organizedData])
+
+    const handleBulkDelete = useCallback(() => {
+      if (selectedNoteIds.size === 0) return
+      setBulkDeleteDialogOpen(true)
+    }, [selectedNoteIds])
+
+    const confirmBulkDelete = useCallback(() => {
+      if (selectedNoteIds.size === 0 || bulkDeleteMutation.isPending) return
+      bulkDeleteMutation.mutate(Array.from(selectedNoteIds))
+    }, [selectedNoteIds, bulkDeleteMutation])
+
+    // Apply local expanded map whenever folders list updates
+    useEffect(() => {
+      if (folders.length === 0) return
+      const mapped = folders.map((f) => ({ ...f, expanded: folderExpandedMap[f.id!] ?? f.expanded }))
+      queryClient.setQueryData(['folders-by-profile', selectedProfile?.id || 'no-profile'], mapped)
+    }, [folders, folderExpandedMap, selectedProfile?.id, queryClient])
+
     // Don't render anything if not authenticated
     if (!isAuthenticated) {
       return (
@@ -904,48 +1114,131 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
             pointer-events: none;
           }
         `}</style>
-        <div className="h-full flex flex-col bg-sidebar">
+        <div key={selectedProfile?.id || 'no-profile'} className="h-full flex flex-col bg-sidebar">
           {/* Header */}
           <div className="px-3 sm:px-4 pt-3 sm:pt-4 pb-4 sm:pb-[18px] border-b border-sidebar-border bg-sidebar" >
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <h2 className="font-semibold text-base sm:text-lg text-sidebar-foreground">Notes</h2>
               <div className="flex items-center space-x-2">
-                <Tooltip delayDuration={300}>
-                  <TooltipTrigger asChild>
+                {!isEditMode ? (
+                  <>
+                    <Tooltip delayDuration={300}>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          onClick={handleToggleEditMode}
+                          size="sm" 
+                          variant="ghost"
+                          disabled={isLoading || notes.length === 0} 
+                          className="transition-colors h-8 w-8 p-0 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+                        >
+                          <Edit3 className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        Edit Mode
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip delayDuration={300}>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          onClick={handleCreateFolder} 
+                          size="sm" 
+                          variant="ghost"
+                          disabled={isLoading || createFolderMutation.isPending} 
+                          className="transition-colors h-8 w-8 p-0 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+                        >
+                          <FolderPlus className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        New Folder
+                      </TooltipContent>
+                    </Tooltip>
                     <Button 
-                      onClick={handleCreateFolder} 
+                      onClick={handleCreateNote} 
+                      size="sm" 
+                      disabled={isLoading || createNoteMutation.isPending} 
+                      className="transition-colors min-w-[60px] sm:min-w-[70px] text-xs sm:text-sm bg-sidebar-primary hover:bg-sidebar-primary/90 text-sidebar-primary-foreground"
+                    >
+                      {createNoteMutation.isPending ? (
+                        <div className="flex items-center space-x-1">
+                          <Skeleton className="w-3 h-3 rounded-full" />
+                          <span className="text-xs">...</span>
+                        </div>
+                      ) : (
+                        <>
+                          <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                          <span className="hidden sm:inline">New</span>
+                        </>
+                      )}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button 
+                      onClick={handleToggleEditMode}
                       size="sm" 
                       variant="ghost"
-                      disabled={isLoading || createFolderMutation.isPending} 
                       className="transition-colors h-8 w-8 p-0 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
                     >
-                      <FolderPlus className="h-4 w-4" />
+                      <X className="h-4 w-4" />
                     </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    New Folder
-                  </TooltipContent>
-                </Tooltip>
-                <Button 
-                  onClick={handleCreateNote} 
-                  size="sm" 
-                  disabled={isLoading || createNoteMutation.isPending} 
-                  className="transition-colors min-w-[60px] sm:min-w-[70px] text-xs sm:text-sm bg-sidebar-primary hover:bg-sidebar-primary/90 text-sidebar-primary-foreground"
-                >
-                  {createNoteMutation.isPending ? (
-                    <div className="flex items-center space-x-1">
-                      <Skeleton className="w-3 h-3 rounded-full" />
-                      <span className="text-xs">...</span>
-                    </div>
-                  ) : (
-                    <>
-                      <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                      <span className="hidden sm:inline">New</span>
-                    </>
-                  )}
-                </Button>
+                    {selectedNoteIds.size > 0 && (
+                      <Button 
+                        onClick={handleBulkDelete}
+                        size="sm" 
+                        variant="destructive"
+                        disabled={bulkDeleteMutation.isPending}
+                        className="transition-colors text-xs sm:text-sm"
+                      >
+                        {bulkDeleteMutation.isPending ? (
+                          <div className="flex items-center space-x-1">
+                            <Skeleton className="w-3 h-3 rounded-full" />
+                            <span className="text-xs">...</span>
+                          </div>
+                        ) : (
+                          <>
+                            <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                            <span>Delete ({selectedNoteIds.size})</span>
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </>
+                )}
               </div>
             </div>
+            
+            {/* Profile Selector */}
+            {isAuthenticated && (
+              <div className="mb-3 sm:mb-4">
+                <ProfileSelector
+                  selectedProfile={selectedProfile}
+                  onSelectProfile={setSelectedProfile}
+                  isAuthenticated={isAuthenticated}
+                  className="w-full"
+                />
+              </div>
+            )}
+            
+            {/* Selection controls in edit mode */}
+            {isEditMode && (
+              <div className="flex items-center justify-between mb-3 text-sm text-sidebar-foreground/70">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    checked={selectedNoteIds.size > 0}
+                    onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                    className="h-4 w-4"
+                  />
+                  <span>
+                    {selectedNoteIds.size === 0 
+                      ? 'Select All' 
+                      : `${selectedNoteIds.size} selected`
+                    }
+                  </span>
+                </div>
+              </div>
+            )}
             
             {/* Search */}
             <div className="relative">
@@ -959,8 +1252,6 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
                 disabled={isLoading}
               />
             </div>
-
-
 
             {/* Error Message */}
             {error && !isLoading && (
@@ -998,6 +1289,7 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
                   </div>
                 ) : (
                   <motion.div 
+                    key={`notes-container-${selectedProfile?.id || 'no-profile'}`}
                     className="space-y-1 p-2"
                     onDragOver={(e) => {
                       e.preventDefault()
@@ -1013,12 +1305,15 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
                         }
                       }
                     }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.2 }}
                   >
-                    <AnimatePresence mode="popLayout">
+                        <AnimatePresence mode="wait">
                       {/* Render folders and notes when not searching */}
-                      {!searchQuery.trim() ? [
+                      {!searchQuery.trim() ? (
                         <motion.div
-                          key="folders-and-notes-container"
+                          key={`folders-and-notes-${selectedProfile?.id || 'no-profile'}`}
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
@@ -1043,8 +1338,8 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
                               {organizedData.notesInFolders.get(folder.id!)?.map((note) => (
                                 <NoteItem 
                                   key={`folder-${folder.id}-note-${note.id}`} 
-                                  note={note} 
-                                  selectedNote={selectedNote}
+                                  note={note}
+                                  isActive={selectedNote?.id === note.id}
                                   onSelectNote={onSelectNote}
                                   onTogglePin={handleTogglePin}
                                   onMoveToFolder={handleMoveNoteToFolder}
@@ -1052,18 +1347,22 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
                                   pinNoteMutation={pinNoteMutation}
                                   unpinNoteMutation={unpinNoteMutation}
                                   isInFolder={true}
+                                  isEditMode={isEditMode}
+                                  isSelected={selectedNoteIds.has(note.id!)}
+                                  onSelectionChange={handleSelectNote}
                                 />
                               ))}
                             </FolderItem>
                           ))}
                           
-                          {/* Standalone notes */}
-                          <div className="space-y-2">
-                            {organizedData.standaloneNotes.map((note) => (
-                              <NoteItem 
-                                key={`standalone-note-${note.id}`} 
-                                note={note} 
-                                selectedNote={selectedNote}
+                          {/* Standalone notes (virtualized) */}
+                          <VirtualizedNoteList
+                            notes={organizedData.standaloneNotes}
+                            render={(note) => (
+                              <NoteItem
+                                key={`standalone-note-${note.id}`}
+                                note={note}
+                                isActive={selectedNote?.id === note.id}
                                 onSelectNote={onSelectNote}
                                 onTogglePin={handleTogglePin}
                                 onMoveToFolder={handleMoveNoteToFolder}
@@ -1071,27 +1370,46 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
                                 pinNoteMutation={pinNoteMutation}
                                 unpinNoteMutation={unpinNoteMutation}
                                 isInFolder={false}
+                                isEditMode={isEditMode}
+                                isSelected={selectedNoteIds.has(note.id!)}
+                                onSelectionChange={handleSelectNote}
                               />
-                            ))}
-                          </div>
-                        </motion.div>,
-                        <RootDropZone key="root-drop-zone-main" onMoveNoteToFolder={handleMoveNoteToFolder} />
-                      ] : 
-                      /* Show flat list when searching */
-                      organizedData.standaloneNotes.map((note) => (
-                        <NoteItem 
-                          key={`search-note-${note.id}`} 
-                          note={note} 
-                          selectedNote={selectedNote}
-                          onSelectNote={onSelectNote}
-                          onTogglePin={handleTogglePin}
-                          onMoveToFolder={handleMoveNoteToFolder}
-                          folders={organizedData.folders}
-                          pinNoteMutation={pinNoteMutation}
-                          unpinNoteMutation={unpinNoteMutation}
-                          isInFolder={false}
-                        />
-                      ))}
+                            )}
+                          />
+                          
+                          <RootDropZone onMoveNoteToFolder={handleMoveNoteToFolder} />
+                        </motion.div>
+                      ) : (
+                        /* Show flat list when searching */
+                        <motion.div
+                          key={`search-results-${selectedProfile?.id || 'no-profile'}`}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <VirtualizedNoteList
+                            notes={organizedData.standaloneNotes}
+                            render={(note) => (
+                              <NoteItem
+                                key={`search-note-${note.id}`}
+                                note={note}
+                                isActive={selectedNote?.id === note.id}
+                                onSelectNote={onSelectNote}
+                                onTogglePin={handleTogglePin}
+                                onMoveToFolder={handleMoveNoteToFolder}
+                                folders={organizedData.folders}
+                                pinNoteMutation={pinNoteMutation}
+                                unpinNoteMutation={unpinNoteMutation}
+                                isInFolder={false}
+                                isEditMode={isEditMode}
+                                isSelected={selectedNoteIds.has(note.id!)}
+                                onSelectionChange={handleSelectNote}
+                              />
+                            )}
+                          />
+                        </motion.div>
+                      )}
                     </AnimatePresence>
                   </motion.div>
                 )}
@@ -1108,6 +1426,28 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
               </ContextMenuItem>
             </ContextMenuContent>
           </ContextMenu>
+          
+          {/* Bulk Delete Confirmation Dialog */}
+          <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Notes</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete {selectedNoteIds.size} note{selectedNoteIds.size !== 1 ? 's' : ''}? This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={confirmBulkDelete}
+                  disabled={bulkDeleteMutation.isPending}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {bulkDeleteMutation.isPending ? 'Deleting...' : 'Delete'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </TooltipProvider>
     )

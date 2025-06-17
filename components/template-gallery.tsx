@@ -284,206 +284,190 @@ export function TemplateGallery({ onCreateNote }: TemplateGalleryProps) {
   }
 
   return (
-    <>
-      <div className="h-full flex flex-col bg-background">
-        {/* Header */}
-        <div className="border-b bg-background p-6">
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center space-y-4 mb-6">
-              <div className="flex items-center justify-center space-x-2">
-                <Sparkles className="h-8 w-8 text-primary" />
-                <h1 className="text-3xl font-bold text-foreground">Choose a Template</h1>
-              </div>
-              <p className="text-muted-foreground max-w-2xl mx-auto">
-                Start with a pre-designed template or create a blank note. Templates help you get started quickly with common note structures.
-              </p>
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="border-b bg-background p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center space-y-4 mb-6">
+            <div className="flex items-center justify-center space-x-2">
+              <Sparkles className="h-8 w-8 text-primary" />
+              <h1 className="text-3xl font-bold text-foreground">Choose a Template</h1>
             </div>
-
-            {/* Actions */}
-            <div className="flex flex-col sm:flex-row gap-4 items-center justify-center mb-6">
-              <Button 
-                onClick={handleCreateBlankNote} 
-                disabled={isCreating}
-                size="lg"
-                className="w-full sm:w-auto"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                {isCreating ? 'Creating...' : 'Create Blank Note'}
-              </Button>
-              
-              {/* Search */}
-              <div className="relative w-full sm:w-80">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Search templates..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Start with a pre-designed template or create a blank note. Templates help you get started quickly with common note structures.
+            </p>
           </div>
-        </div>
 
-        {/* Templates Grid */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="max-w-6xl mx-auto">
-            {isLoading ? (
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {[...Array(6)].map((_, i) => (
-                  <Card key={i} className="overflow-hidden">
-                    {/* Preview Skeleton */}
-                    <div className="p-4 pb-0">
-                      <div className="w-full h-32 bg-muted/50 rounded-md">
-                        <div className="h-2 bg-muted border-b"></div>
-                        <div className="p-2 space-y-1">
-                          <Skeleton className="h-1.5 w-3/4" />
-                          <Skeleton className="h-1 w-full" />
-                          <Skeleton className="h-1 w-5/6" />
-                          <Skeleton className="h-1 w-2/3" />
-                          <Skeleton className="h-1 w-4/5" />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <CardHeader className="pb-2">
-                      <Skeleton className="h-4 w-3/4" />
-                      <Skeleton className="h-3 w-full" />
-                      <Skeleton className="h-3 w-2/3" />
-                    </CardHeader>
-                    
-                    <CardContent className="pt-0">
-                      <div className="flex items-center justify-between">
-                        <div className="flex gap-1">
-                          <Skeleton className="h-5 w-12" />
-                          <Skeleton className="h-5 w-10" />
-                        </div>
-                        <Skeleton className="h-3 w-8" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : Object.keys(groupedTemplates).length === 0 ? (
-              <div className="text-center space-y-4">
-                <FileText className="h-16 w-16 text-muted-foreground mx-auto" />
-                <div className="space-y-2">
-                  <h3 className="text-lg font-semibold text-foreground">
-                    {searchQuery ? 'No templates found' : 'No templates available'}
-                  </h3>
-                  <p className="text-muted-foreground">
-                    {searchQuery 
-                      ? `No templates match "${searchQuery}". Try a different search term.`
-                      : 'No templates have been set up yet. You can create a blank note to get started.'
-                    }
-                  </p>
-                  <Button onClick={handleCreateBlankNote} disabled={isCreating}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Blank Note
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-8">
-                {Object.entries(groupedTemplates).map(([category, categoryTemplates]) => (
-                  <div key={category}>
-                    <h2 className="text-xl font-semibold mb-4 capitalize text-foreground">
-                      {category}
-                    </h2>
-                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                      {categoryTemplates.map((template) => (
-                        <Card 
-                          key={template.id} 
-                          className="cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] group overflow-hidden"
-                          onClick={() => handleTemplateSelect(template)}
-                        >
-                          {/* Template Preview */}
-                          <div className="p-4 pb-0">
-                            <TemplatePreview content={template.content || ''} />
-                          </div>
-                          
-                          <CardHeader className="pb-2">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1 min-w-0">
-                                <CardTitle className="text-base group-hover:text-primary transition-colors line-clamp-1">
-                                  {template.name}
-                                </CardTitle>
-                                <CardDescription className="text-sm mt-1 line-clamp-2 min-h-[2.5rem]">
-                                  {template.description}
-                                </CardDescription>
-                              </div>
-                              <FileText className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors ml-2 flex-shrink-0" />
-                            </div>
-                          </CardHeader>
-                          
-                          <CardContent className="pt-0">
-                            <div className="flex items-center justify-between">
-                              <div className="flex flex-wrap gap-1">
-                                {template.tags?.slice(0, 2).map((tag) => (
-                                  <Badge key={tag} variant="secondary" className="text-xs">
-                                    <Tag className="h-2 w-2 mr-1" />
-                                    {tag}
-                                  </Badge>
-                                ))}
-                                {template.tags && template.tags.length > 2 && (
-                                  <Badge variant="outline" className="text-xs">
-                                    +{template.tags.length - 2}
-                                  </Badge>
-                                )}
-                              </div>
-                              {template.usage_count && template.usage_count > 0 && (
-                                <div className="flex items-center text-xs text-muted-foreground">
-                                  <User className="h-3 w-3 mr-1" />
-                                  {template.usage_count}
-                                </div>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+          {/* Actions */}
+          <div className="flex flex-col sm:flex-row gap-4 items-center justify-center mb-6">
+            <Button 
+              onClick={handleCreateBlankNote} 
+              disabled={isCreating}
+              size="lg"
+              className="w-full sm:w-auto"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              {isCreating ? 'Creating...' : 'Create Blank Note'}
+            </Button>
+            
+            {/* Search */}
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search templates..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Confirmation Dialog */}
-      <AlertDialog open={!!selectedTemplate} onOpenChange={handleCancelTemplate}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Create Note from Template</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will create a new note using the &quot;{selectedTemplate?.name}&quot; template. 
-              You can edit the content after the note is created.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelTemplate}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleConfirmTemplate}
-              disabled={isCreating}
-            >
-              {isCreating ? (
-                <>
-                  <Clock className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                <>
+      {/* Templates Grid */}
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="max-w-6xl mx-auto">
+          {isLoading ? (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {[...Array(6)].map((_, i) => (
+                <Card key={i} className="overflow-hidden">
+                  {/* Preview Skeleton */}
+                  <div className="p-4 pb-0">
+                    <div className="w-full h-32 bg-muted/50 rounded-md">
+                      <div className="h-2 bg-muted border-b"></div>
+                      <div className="p-2 space-y-1">
+                        <Skeleton className="h-1.5 w-3/4" />
+                        <Skeleton className="h-1 w-full" />
+                        <Skeleton className="h-1 w-5/6" />
+                        <Skeleton className="h-1 w-2/3" />
+                        <Skeleton className="h-1 w-4/5" />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <CardHeader className="pb-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-3 w-2/3" />
+                  </CardHeader>
+                  
+                  <CardContent className="pt-0">
+                    <div className="flex items-center justify-between">
+                      <div className="flex gap-1">
+                        <Skeleton className="h-5 w-12" />
+                        <Skeleton className="h-5 w-10" />
+                      </div>
+                      <Skeleton className="h-3 w-8" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : Object.keys(groupedTemplates).length === 0 ? (
+            <div className="text-center space-y-4">
+              <FileText className="h-16 w-16 text-muted-foreground mx-auto" />
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold text-foreground">
+                  {searchQuery ? 'No templates found' : 'No templates available'}
+                </h3>
+                <p className="text-muted-foreground">
+                  {searchQuery 
+                    ? `No templates match "${searchQuery}". Try a different search term.`
+                    : 'No templates have been set up yet. You can create a blank note to get started.'
+                  }
+                </p>
+                <Button onClick={handleCreateBlankNote} disabled={isCreating}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Create Note
-                </>
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+                  Create Blank Note
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {Object.entries(groupedTemplates).map(([category, categoryTemplates]) => (
+                <div key={category}>
+                  <h2 className="text-xl font-semibold mb-4 capitalize text-foreground">
+                    {category}
+                  </h2>
+                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {categoryTemplates.map((template) => (
+                      <Card 
+                        key={template.id} 
+                        className="cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] group overflow-hidden"
+                        onClick={() => handleTemplateSelect(template)}
+                      >
+                        {/* Template Preview */}
+                        <div className="p-4 pb-0">
+                          <TemplatePreview content={template.content || ''} />
+                        </div>
+                        
+                        <CardHeader className="pb-2">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <CardTitle className="text-base group-hover:text-primary transition-colors line-clamp-1">
+                                {template.name}
+                              </CardTitle>
+                              <CardDescription className="text-sm mt-1 line-clamp-2 min-h-[2.5rem]">
+                                {template.description}
+                              </CardDescription>
+                            </div>
+                            <FileText className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors ml-2 flex-shrink-0" />
+                          </div>
+                        </CardHeader>
+                        
+                        <CardContent className="pt-0">
+                          <div className="flex items-center justify-between">
+                            <div className="flex flex-wrap gap-1">
+                              {template.tags?.slice(0, 2).map((tag) => (
+                                <Badge key={tag} variant="secondary" className="text-xs">
+                                  <Tag className="h-2 w-2 mr-1" />
+                                  {tag}
+                                </Badge>
+                              ))}
+                              {template.tags && template.tags.length > 2 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{template.tags.length - 2}
+                                </Badge>
+                              )}
+                            </div>
+                            {template.usage_count && template.usage_count > 0 && (
+                              <div className="flex items-center text-xs text-muted-foreground">
+                                <User className="h-3 w-3 mr-1" />
+                                {template.usage_count}
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Confirmation Dialog */}
+      {selectedTemplate && (
+        <AlertDialog open onOpenChange={handleCancelTemplate}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Create Note from Template</AlertDialogTitle>
+              <AlertDialogDescription>
+                {`Create a new note using "${selectedTemplate.name}"?`}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={handleCancelTemplate} disabled={isCreating}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmTemplate} disabled={isCreating}>
+                {isCreating ? 'Creating...' : 'Create'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </div>
   )
 } 

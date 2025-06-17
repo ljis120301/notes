@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator'
 import { IntegratedSyncResult } from '@/hooks/use-integrated-sync'
 import { formatDistanceToNow } from 'date-fns'
+import { cn } from '@/lib/utils'
 
 interface SyncStatusIndicatorProps {
   syncResult: IntegratedSyncResult
@@ -127,31 +128,34 @@ export function SyncStatusIndicator({
   if (!showDetails) {
     return (
       <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className={`flex items-center gap-2 ${className}`}>
-              {getStatusIcon()}
-              <Badge variant={getStatusVariant()} className="text-xs">
-                {getStatusText()}
+        <div className={cn('flex items-center gap-2', className)}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge
+                variant={getStatusVariant()}
+                className="cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5">
+                  {getStatusIcon()}
+                  <span className="font-semibold text-xs">{getStatusText()}</span>
+                </div>
               </Badge>
-              {conflicts.length > 0 && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => forceSync()}
-                  className="h-6 px-2 text-xs"
-                >
-                  Refresh
-                </Button>
-              )}
-            </div>
-          </TooltipTrigger>
-          <TooltipContent>
-            <div className="whitespace-pre-line text-sm">
+            </TooltipTrigger>
+            <TooltipContent side="bottom" align="center" className="max-w-xs whitespace-pre-line text-sm leading-relaxed">
               {getTooltipContent()}
-            </div>
-          </TooltipContent>
-        </Tooltip>
+            </TooltipContent>
+          </Tooltip>
+          {conflicts.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => forceSync()}
+              className="h-6 px-2 text-xs"
+            >
+              Refresh
+            </Button>
+          )}
+        </div>
       </TooltipProvider>
     )
   }

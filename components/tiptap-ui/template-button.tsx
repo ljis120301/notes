@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, memo } from 'react'
 import { useTiptapEditor } from '@/hooks/use-tiptap-editor'
 import { Button } from '@/components/tiptap-ui-primitive/button'
 import { FileText, Sparkles } from 'lucide-react'
@@ -15,17 +15,10 @@ interface TemplateButtonProps {
   className?: string
 }
 
-export function TemplateButton({ editor: providedEditor, text = 'Templates', className }: TemplateButtonProps) {
+function TemplateButtonComponent({ editor: providedEditor, text = 'Templates', className }: TemplateButtonProps) {
   const editor = useTiptapEditor(providedEditor)
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   
-  // Debug logging
-  console.log('TemplateButton render:', { 
-    hasEditor: !!editor, 
-    text,
-    showPicker: showTemplatePicker 
-  })
-
   const handleSelectTemplate = useCallback((template: Template) => {
     if (!editor) {
       console.warn('No editor available for template insertion')
@@ -122,4 +115,6 @@ export function TemplateButton({ editor: providedEditor, text = 'Templates', cla
       />
     </>
   )
-} 
+}
+
+export const TemplateButton = memo(TemplateButtonComponent) 

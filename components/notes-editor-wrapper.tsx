@@ -23,6 +23,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { DocumentSizeIndicator } from '@/components/document-size-indicator'
+import { Input } from '@/components/ui/input'
 
 interface NotesEditorWrapperProps {
   note: Note
@@ -48,25 +50,57 @@ const NotesEditorWrapper = ({
 
   // Initialize autosave (separate from real-time to avoid conflicts)
   const autosaveResult = useAutosave(note.id || null, noteTitle, noteContent, {
-    delay: 3000, // 3 second debounce - good balance of performance and responsiveness
-    maxRetries: 3,
+    delay: 2000, // 2 second debounce - faster for better responsiveness
+    maxRetries: 5, // Increased retries for better reliability
     enableOfflineSupport: true,
-    // More responsive change detection
+    // Enhanced change detection for better title/content handling
     isChanged: (current: string, previous: string) => {
       const currentTrimmed = current.trim()
       const previousTrimmed = previous.trim()
       
       if (currentTrimmed === previousTrimmed) return false
       
-      // Save on smaller changes now that we have better performance
-      return Math.abs(currentTrimmed.length - previousTrimmed.length) > 5 ||
-             currentTrimmed.split('\n').length !== previousTrimmed.split('\n').length
+      // More sophisticated change detection
+      const lengthDiff = Math.abs(currentTrimmed.length - previousTrimmed.length)
+      
+      // Always save large changes (like paste operations)
+      if (lengthDiff > 500) {
+        return true
+      }
+      
+      // For smaller changes, be more selective
+      if (lengthDiff < 3) {
+        // Only save if meaningful structural changes
+        return currentTrimmed.split('\n').length !== previousTrimmed.split('\n').length
+      }
+      
+      return true
     },
     onSaveSuccess: (updatedNote) => {
+      // Ensure the parent component is updated with the latest data
       onSave(updatedNote)
     },
     onSaveError: (error) => {
-      toast.error('Failed to save: ' + error.message, { duration: 5000 })
+      // Enhanced error handling with more specific messages
+      let errorMessage = 'Failed to save: ' + error.message
+      
+      if (error.message.includes('too large')) {
+        errorMessage = 'Content is too large to save. Please reduce the size and try again.'
+      } else if (error.message.includes('Title is too long')) {
+        errorMessage = 'Title is too long. Please use a shorter title.'
+      } else if (error.message.includes('network') || error.message.includes('connection')) {
+        errorMessage = 'Network error. Your changes are saved locally and will sync when connection is restored.'
+      }
+      
+      toast.error(errorMessage, { 
+        duration: error.message.includes('network') ? 3000 : 5000,
+        action: error.message.includes('too large') ? {
+          label: 'Learn More',
+          onClick: () => {
+            console.log('Content size limits: Title max 1900 chars, Content should be under 10MB')
+          }
+        } : undefined
+      })
     }
   })
 
@@ -154,9 +188,18 @@ const NotesEditorWrapper = ({
     setNoteContent(content)
   }, [])
 
+  // Enhanced title change handler to prevent race conditions
   const handleTitleChange = useCallback((title: string) => {
-    setNoteTitle(title)
-    onTitleChange(title)
+    // Validate title length client-side to prevent server errors
+    let processedTitle = title
+    
+    if (title.length > 1900) {
+      processedTitle = title.substring(0, 1900)
+      toast.warning('Title was trimmed to 1900 characters', { duration: 3000 })
+    }
+    
+    setNoteTitle(processedTitle)
+    onTitleChange(processedTitle)
   }, [onTitleChange])
 
   // Keyboard shortcut for manual save (Ctrl+S / Cmd+S)
@@ -188,14 +231,14 @@ const NotesEditorWrapper = ({
       {/* Header */}
       <div className="border-b bg-background p-3 sm:p-4 flex items-center justify-between">
         <div className="flex-1 min-w-0">
-          <input
+          <Input
             type="text"
             value={noteTitle}
             onChange={(e) => handleTitleChange(e.target.value)}
-            className="text-base sm:text-lg font-semibold bg-transparent border-none outline-none w-full text-foreground"
+            className="max-w-md text-lg font-semibold sm:text-xl"
             placeholder="Note title..."
           />
-          <div className="flex items-center justify-between mt-1">
+          <div className="flex items-center justify-between mt-2">
             {/* Sync status indicator with real-time capabilities */}
             <div className="flex-1 min-w-0">
               <SyncStatusIndicator
@@ -205,13 +248,23 @@ const NotesEditorWrapper = ({
               />
             </div>
             
-            {/* Additional info for development */}
-            {process.env.NODE_ENV === 'development' && (
-              <span className="text-xs text-muted-foreground hidden sm:inline">
-                {autosaveResult.status.retryCount > 0 && `Retry ${autosaveResult.status.retryCount}/3`}
-                {!realtimeSync.isConnected && ` | Real-time: disconnected`}
-              </span>
-            )}
+            {/* Document size indicator - positioned on the right side */}
+            <div className="flex items-center gap-2 sm:gap-3 ml-2 flex-shrink-0">
+              <DocumentSizeIndicator
+                title={noteTitle}
+                content={noteContent}
+                className="hidden sm:flex" // Hide on mobile to save space
+                showDetails={true}
+              />
+              
+              {/* Additional info for development */}
+              {process.env.NODE_ENV === 'development' && (
+                <span className="text-xs text-muted-foreground hidden sm:inline">
+                  {autosaveResult.status.retryCount > 0 && `Retry ${autosaveResult.status.retryCount}/5`}
+                  {!realtimeSync.isConnected && ` | Real-time: disconnected`}
+                </span>
+              )}
+            </div>
           </div>
         </div>
         
