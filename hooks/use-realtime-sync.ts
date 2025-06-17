@@ -110,7 +110,7 @@ export function useRealtimeSync(
     console.log('🔄 Processing real-time event:', { action, noteId: remoteNote.id, title: remoteNote.title })
     
     // Normalize image URLs in the remote note and ensure proper typing
-    const normalizedRemoteNote = {
+    const normalizedRemoteNote: Note & { profile_id?: string } = {
       id: remoteNote.id,
       title: remoteNote.title || 'Untitled',
       content: normalizeImageUrls(remoteNote.content || ''),
@@ -118,6 +118,7 @@ export function useRealtimeSync(
       created: remoteNote.created,
       updated: remoteNote.updated,
       pinned: remoteNote.pinned || false,
+      profile_id: (remoteNote as any).profile_id || undefined,
     } as Note
     
     console.log('✅ Successfully normalized remote note:', { id: normalizedRemoteNote.id, title: normalizedRemoteNote.title })

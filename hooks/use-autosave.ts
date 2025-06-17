@@ -83,30 +83,10 @@ export interface AutosaveResult {
 
 // 🎛️ PERFORMANCE TUNING: Autosave Configuration
 const DEFAULT_OPTIONS: Required<AutosaveOptions> = {
-  // ⏱️ TUNING POINT: Autosave delay (currently 5000ms = 5s)
-  // This is the main delay that controls sync speed vs performance
-  // 
-  // AGGRESSIVE SYNC (1000-2500ms):
-  // ✅ Very responsive sync (changes appear quickly on other devices)
-  // ✅ Better for collaborative editing
-  // ❌ Much higher server load (more API calls)
-  // ❌ Higher chance of save conflicts
-  // ❌ More network usage
-  // 
-  // BALANCED SYNC (3000-5000ms):
-  // ✅ Good sync speed (current setting)
-  // ✅ Reasonable server load
-  // ✅ Good conflict avoidance
-  // 
-  // CONSERVATIVE SYNC (7000-15000ms):
-  // ✅ Minimal server load
-  // ✅ Very low conflict rate
-  // ❌ Slower sync (users may notice delay)
-  // ❌ Risk of data loss if browser crashes
-  // 
-  // RECOMMENDED RANGE: 2000ms - 10000ms
-  // CURRENT: 5000ms (good for most use cases)
-  delay: 5000, // 🎯 CHANGE THIS VALUE to adjust autosave→server timing
+  // ⏱️ TUNING POINT: Autosave delay (increased for large content handling)
+  // For large content, we need longer delays to prevent overwhelming the server
+  // and to allow users to finish their paste operations
+  delay: 3000, // 🎯 INCREASED: 3000ms for better large content handling
   
   // ♻️ TUNING POINT: Retry behavior
   // Higher values = more resilient to network issues
@@ -115,7 +95,7 @@ const DEFAULT_OPTIONS: Required<AutosaveOptions> = {
   
   enableOfflineSupport: true, // 🎯 Keep this true for reliability
   
-  // 🧠 SMART CHANGE DETECTION: Prevents saves for trivial changes
+  // 🧠 SMART CHANGE DETECTION: Enhanced for large content
   // This function determines what constitutes a "meaningful" change
   isChanged: (current, previous) => {
     const currentTrimmed = current.trim()
@@ -123,12 +103,17 @@ const DEFAULT_OPTIONS: Required<AutosaveOptions> = {
     
     if (currentTrimmed === previousTrimmed) return false
     
-    // 🎯 TUNING POINT: Change sensitivity (currently <5 chars)
-    // Lower number = more sensitive (saves more often)
-    // Higher number = less sensitive (saves less often)
+    // Enhanced change detection for large content
     const lengthDiff = Math.abs(currentTrimmed.length - previousTrimmed.length)
     
-    if (lengthDiff < 5) { // 🎯 ADJUST: 1-10 characters
+    // For very large content changes (like pasting), always trigger save
+    if (lengthDiff > 1000) {
+      console.log(`[autosave] Large content change detected: ${lengthDiff} characters`)
+      return true
+    }
+    
+    // For smaller changes, use more sensitive detection
+    if (lengthDiff < 10) { // 🎯 ADJUSTED: More sensitive for small changes
       const currentLines = currentTrimmed.split('\n').length
       const previousLines = previousTrimmed.split('\n').length
       const currentHtml = (currentTrimmed.match(/</g) || []).length
@@ -237,6 +222,21 @@ export function useAutosave(
         throw new Error('No internet connection')
       }
 
+      // Enhanced payload preparation for large content
+      const payloadJson = JSON.stringify({ title, content })
+      const payloadSize = new Blob([payloadJson]).size
+      
+      // Log large content attempts
+      if (payloadSize > 1024 * 1024) { // 1MB
+        console.log(`[autosave] Large content save attempt: ${Math.round(payloadSize / 1024)}KB`)
+      }
+      
+      // Check for reasonable size limits (server-side limit is now 50MB)
+      if (payloadSize > 40 * 1024 * 1024) { // 40MB client-side safety limit
+        console.warn(`[autosave] Very large payload: ${Math.round(payloadSize / (1024 * 1024))}MB`)
+        throw new Error('Content is extremely large. Consider breaking it into smaller sections.')
+      }
+
       const result = await updateNote(noteId, { 
         title: title.trim() || 'Untitled', 
         content 
@@ -253,7 +253,7 @@ export function useAutosave(
         oldNotes.map(n => n.id === updatedNote.id ? updatedNote : n)
       )
 
-      // Update internal state
+      // Update internal state with proper synchronization
       lastSavedContentRef.current = { title: updatedNote.title || '', content: updatedNote.content || '' }
       setHasUnsavedChanges(false)
       
@@ -281,6 +281,8 @@ export function useAutosave(
       
       const isNetworkError = !isOnlineRef.current || error.message?.includes('connection') || error.message?.includes('network')
       const isConflictError = error.status === 409 || error.message?.includes('conflict')
+      const isPayloadError = error.status === 413 || error.message?.includes('too large') || error.message?.includes('extremely large')
+      const isSizeError = error.message?.includes('Content is too large') || error.message?.includes('reduce the size')
       
       let errorStatus: AutosaveStatus['status'] = 'error'
       let canRetry = true
@@ -294,10 +296,22 @@ export function useAutosave(
       } else if (isConflictError) {
         errorStatus = 'conflict'
         canRetry = false // Conflicts need manual resolution
+      } else if (isPayloadError || isSizeError) {
+        // Don't retry payload too large errors
+        canRetry = false
+        const contentSize = new Blob([content]).size
+        console.error(`[autosave] Content too large - Size: ${Math.round(contentSize / 1024)}KB, Content length: ${content.length} chars`)
+        
+        // Provide specific guidance based on content size
+        if (contentSize > 10 * 1024 * 1024) { // >10MB
+          error.message = 'Document is too large (>10MB). Please break it into smaller sections.'
+        } else if (content.length > 1000000) { // >1M chars
+          error.message = 'Document is very long. Consider splitting into multiple notes.'
+        }
       }
 
       const newRetryCount = status.retryCount + 1
-      const shouldRetry = canRetry && newRetryCount <= opts.maxRetries && !isConflictError
+      const shouldRetry = canRetry && newRetryCount <= opts.maxRetries && !isConflictError && !isPayloadError && !isSizeError
 
       updateStatus({
         status: errorStatus,
@@ -306,7 +320,7 @@ export function useAutosave(
         errorMessage: error.message || 'Failed to save',
       })
 
-      // Exponential backoff retry for non-conflict errors
+      // Exponential backoff retry for retryable errors only
       if (shouldRetry) {
         const retryDelay = Math.min(1000 * Math.pow(2, newRetryCount - 1), 30000) // Max 30 seconds
         retryTimeoutRef.current = setTimeout(() => {
@@ -348,7 +362,7 @@ export function useAutosave(
     }, opts.delay)
   }, [noteId, isPaused, opts.delay, performSave])
 
-  // Check for content changes and trigger autosave
+  // Check for content changes and trigger autosave with better synchronization
   useEffect(() => {
     if (!noteId) return
 
@@ -367,9 +381,21 @@ export function useAutosave(
         updateStatus({ status: 'idle', errorMessage: undefined })
       }
       
-      triggerAutosave()
+      // For very large content changes, add a small additional delay
+      const contentSize = content.length
+      const extraDelay = contentSize > 100000 ? 2000 : 0 // Extra 2s for large content
+      
+      // Clear existing timer
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+
+      // Set new timer with adaptive delay
+      debounceTimerRef.current = setTimeout(() => {
+        performSave()
+      }, opts.delay + extraDelay)
     }
-  }, [noteId, title, content, isPaused, opts.isChanged, triggerAutosave, status.status, status.canRetry, updateStatus])
+  }, [noteId, title, content, isPaused, opts.isChanged, opts.delay, status.status, status.canRetry, updateStatus])
 
   // Manual save function
   const saveNow = useCallback(() => {

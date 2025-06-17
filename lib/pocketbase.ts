@@ -146,11 +146,24 @@ export function normalizeImageUrls(htmlContent: string): string {
   return transformedContent
 }
 
+export interface Profile {
+  id?: string
+  name: string
+  description?: string
+  color?: string  // Hex color code like #3b82f6
+  icon?: string   // Icon name for display
+  user: string    // User ID who owns this profile
+  is_default?: boolean  // Whether this is the default profile
+  created?: string
+  updated?: string
+}
+
 export interface Note {
   id?: string
   title: string
   content: string
   user?: string  // Optional for backward compatibility
+  profile_id?: string  // New field for profile relationship
   created?: string
   updated?: string
   pinned?: boolean  // New field for pin functionality

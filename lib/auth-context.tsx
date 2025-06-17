@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { pb } from './pocketbase'
+import { requestOTP, verifyOTP, signupWithOTP } from './auth'
 
 interface User {
   id: string
@@ -12,12 +13,23 @@ interface User {
   avatar?: string
 }
 
+interface OTPRequestResult {
+  otpId: string
+}
+
 interface AuthContextType {
   user: User | null
   loading: boolean
   isAuthenticated: boolean
+  // Traditional password auth (kept for compatibility)
   login: (email: string, password: string) => Promise<boolean>
   register: (email: string, password: string, name?: string) => Promise<boolean>
+  // OTP-based auth methods
+  requestLoginOTP: (email: string) => Promise<{ otpId: string } | null>
+  verifyLoginOTP: (otpId: string, otpCode: string) => Promise<boolean>
+  requestSignupOTP: (email: string, name?: string) => Promise<{ otpId: string } | null>
+  verifySignupOTP: (otpId: string, otpCode: string) => Promise<boolean>
+  // Common methods
   logout: () => void
   refreshAuth: () => Promise<void>
 }
@@ -87,13 +99,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Traditional password-based login (kept for compatibility)
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       setLoading(true)
-      console.log('🔐 AuthContext: Attempting login for:', email)
+      console.log('🔐 AuthContext: Attempting password login for:', email)
       
       const authData = await pb.collection('users').authWithPassword(email.trim(), password)
-      console.log('✅ Login successful!')
+      console.log('✅ Password login successful!')
       
       const userData = {
         id: authData.record.id,
@@ -103,34 +116,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       setUser(userData)
-      console.log('✅ Login process complete for:', userData.email)
+      console.log('✅ Password login process complete for:', userData.email)
       toast.success('Welcome back!')
       return true
     } catch (error: unknown) {
-      console.error('❌ Login failed:', error)
-      
-      // Handle specific PocketBase authentication errors
-      if (error && typeof error === 'object' && 'status' in error) {
-        const pbError = error as { status: number; message?: string }
-        if (pbError.status === 400) {
-          toast.error('Invalid email or password. Please check your credentials and try again.')
-        } else {
-          toast.error('Login failed. Please try again later.')
-        }
-      } else {
-        toast.error('An unexpected error occurred. Please try again.')
-      }
-      
+      console.error('❌ Password login failed:', error)
+      handleAuthError(error, 'Login failed. Please check your credentials and try again.')
       return false
     } finally {
       setLoading(false)
     }
   }
 
+  // Traditional registration (kept for compatibility)
   const register = async (email: string, password: string, name?: string): Promise<boolean> => {
     try {
       setLoading(true)
-      console.log('🔐 AuthContext: Attempting registration for:', email)
+      console.log('🔐 AuthContext: Attempting password registration for:', email)
       
       // Create the user account
       await pb.collection('users').create({
@@ -150,32 +152,110 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         toast.success('Account created successfully! Welcome!')
         return true
       } else {
-        // Login failed after successful registration
         toast.error('Account created but login failed. Please try signing in manually.')
         return false
       }
     } catch (error: unknown) {
       console.error('❌ Registration failed:', error)
+      handleAuthError(error, 'Registration failed. Please try again.')
+      return false
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // OTP-based login request
+  const requestLoginOTP = async (email: string): Promise<{ otpId: string } | null> => {
+    try {
+      setLoading(true)
+      console.log('🔐 AuthContext: Requesting login OTP for:', email)
       
-      // Handle specific PocketBase registration errors
-      if (error && typeof error === 'object' && 'status' in error) {
-        const pbError = error as { status: number; message?: string; data?: Record<string, unknown> }
-        if (pbError.status === 400) {
-          // Check for specific validation errors
-          if (pbError.data && pbError.data.email) {
-            toast.error('This email is already registered. Please use a different email or try signing in.')
-          } else if (pbError.data && pbError.data.password) {
-            toast.error('Password must be at least 8 characters long.')
-          } else {
-            toast.error('Please check your information and try again.')
-          }
-        } else {
-          toast.error('Registration failed. Please try again later.')
-        }
-      } else {
-        toast.error('An unexpected error occurred during registration.')
+      const result = await requestOTP(email)
+      console.log('✅ Login OTP request successful')
+      
+      toast.success('Login code sent to your email!')
+      return result
+    } catch (error: unknown) {
+      console.error('❌ Login OTP request failed:', error)
+      handleAuthError(error, 'Failed to send login code. Please check your email and try again.')
+      return null
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // OTP-based login verification
+  const verifyLoginOTP = async (otpId: string, otpCode: string): Promise<boolean> => {
+    try {
+      setLoading(true)
+      console.log('🔐 AuthContext: Verifying login OTP')
+      
+      const authData = await verifyOTP(otpId, otpCode)
+      console.log('✅ Login OTP verification successful!')
+      
+      const userData = {
+        id: authData.id,
+        email: authData.email,
+        name: authData.name,
+        avatar: (authData as any).avatar
       }
       
+      setUser(userData)
+      console.log('✅ OTP login process complete for:', userData.email)
+      toast.success('Welcome back!')
+      return true
+    } catch (error: unknown) {
+      console.error('❌ Login OTP verification failed:', error)
+      handleAuthError(error, 'Invalid or expired code. Please try again.')
+      return false
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // OTP-based signup request
+  const requestSignupOTP = async (email: string, name?: string): Promise<{ otpId: string } | null> => {
+    try {
+      setLoading(true)
+      console.log('🔐 AuthContext: Requesting signup OTP for:', email)
+      
+      const result = await signupWithOTP(email, name)
+      console.log('✅ Signup OTP request successful')
+      
+      toast.success('Welcome! A verification code has been sent to your email.')
+      return result
+    } catch (error: unknown) {
+      console.error('❌ Signup OTP request failed:', error)
+      handleAuthError(error, 'Failed to create account. Please try again.')
+      return null
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // OTP-based signup verification
+  const verifySignupOTP = async (otpId: string, otpCode: string): Promise<boolean> => {
+    try {
+      setLoading(true)
+      console.log('🔐 AuthContext: Verifying signup OTP')
+      
+      const authData = await verifyOTP(otpId, otpCode)
+      console.log('✅ Signup OTP verification successful!')
+      
+      const userData = {
+        id: authData.id,
+        email: authData.email,
+        name: authData.name,
+        avatar: (authData as any).avatar
+      }
+      
+      setUser(userData)
+      console.log('✅ OTP signup process complete for:', userData.email)
+      toast.success('Account created successfully! Welcome!')
+      return true
+    } catch (error: unknown) {
+      console.error('❌ Signup OTP verification failed:', error)
+      handleAuthError(error, 'Invalid or expired code. Please try again.')
       return false
     } finally {
       setLoading(false)
@@ -213,12 +293,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Helper function to handle authentication errors
+  const handleAuthError = (error: unknown, defaultMessage: string) => {
+    if (error && typeof error === 'object' && 'status' in error) {
+      const pbError = error as { status: number; message?: string; data?: Record<string, unknown> }
+      if (pbError.status === 400) {
+        if (pbError.data && pbError.data.email) {
+          toast.error('This email is already registered. Please try signing in instead.')
+        } else if (pbError.data && pbError.data.password) {
+          toast.error('Password must be at least 8 characters long.')
+        } else {
+          toast.error('Please check your information and try again.')
+        }
+      } else if (pbError.status === 404) {
+        toast.error('No account found with this email. Please check your email or create a new account.')
+      } else {
+        toast.error(defaultMessage)
+      }
+    } else {
+      toast.error(defaultMessage)
+    }
+  }
+
   const value: AuthContextType = {
     user,
     loading,
     isAuthenticated,
     login,
     register,
+    requestLoginOTP,
+    verifyLoginOTP,
+    requestSignupOTP,
+    verifySignupOTP,
     logout,
     refreshAuth
   }

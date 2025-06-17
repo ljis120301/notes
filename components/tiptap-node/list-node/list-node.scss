@@ -16,11 +16,11 @@
   }
 
   .frappe & {
-    --tt-checklist-bg-color: var(--tt-gray-frappe-a-100);
-    --tt-checklist-bg-active-color: var(--tt-gray-frappe-a-900);
-    --tt-checklist-border-color: var(--tt-gray-frappe-a-200);
-    --tt-checklist-border-active-color: var(--tt-gray-frappe-a-900);
-    --tt-checklist-check-icon-color: #303446; // Catppuccin base
+    --tt-checklist-bg-color: #414559; // Catppuccin surface0 - more visible background
+    --tt-checklist-bg-active-color: #8caaee; // Catppuccin blue - distinctive active state
+    --tt-checklist-border-color: #626880; // Darker border for better visibility
+    --tt-checklist-border-active-color: #8caaee; // Catppuccin blue for active border
+    --tt-checklist-check-icon-color: #303446; // Catppuccin base - dark check on blue background
     --tt-checklist-text-active: var(--tt-gray-frappe-a-500);
   }
 }

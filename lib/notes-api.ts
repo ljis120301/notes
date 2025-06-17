@@ -1,5 +1,115 @@
-import { pb, Note, notesCollection, getRelativeFileUrl, normalizeImageUrls, Folder, foldersCollection } from './pocketbase'
+import { pb, Note, notesCollection, getRelativeFileUrl, normalizeImageUrls, Folder, foldersCollection, Profile } from './pocketbase'
 import PocketBase from 'pocketbase'
+
+// Collection name for profiles
+const profilesCollection = 'user_profiles'
+
+// ==================== CLIENT-SIDE PROFILE SIMULATION ====================
+
+interface ProfileAssignments {
+  [noteId: string]: string // noteId -> profileId
+}
+
+interface FolderAssignments {
+  [folderId: string]: string // folderId -> profileId
+}
+
+// Get localStorage keys for current user
+function getProfileAssignmentsKey(): string {
+  const userId = pb.authStore.model?.id || 'anonymous'
+  return `profile_assignments_${userId}`
+}
+
+function getFolderAssignmentsKey(): string {
+  const userId = pb.authStore.model?.id || 'anonymous'
+  return `folder_assignments_${userId}`
+}
+
+// Get profile assignments from localStorage
+function getProfileAssignments(): ProfileAssignments {
+  try {
+    const stored = localStorage.getItem(getProfileAssignmentsKey())
+    return stored ? JSON.parse(stored) : {}
+  } catch (error) {
+    console.warn('Failed to parse profile assignments from localStorage:', error)
+    return {}
+  }
+}
+
+function getFolderAssignments(): FolderAssignments {
+  try {
+    const stored = localStorage.getItem(getFolderAssignmentsKey())
+    return stored ? JSON.parse(stored) : {}
+  } catch (error) {
+    console.warn('Failed to parse folder assignments from localStorage:', error)
+    return {}
+  }
+}
+
+// Save profile assignments to localStorage
+function saveProfileAssignments(assignments: ProfileAssignments): void {
+  try {
+    localStorage.setItem(getProfileAssignmentsKey(), JSON.stringify(assignments))
+  } catch (error) {
+    console.warn('Failed to save profile assignments to localStorage:', error)
+  }
+}
+
+function saveFolderAssignments(assignments: FolderAssignments): void {
+  try {
+    localStorage.setItem(getFolderAssignmentsKey(), JSON.stringify(assignments))
+  } catch (error) {
+    console.warn('Failed to save folder assignments to localStorage:', error)
+  }
+}
+
+// Assign note to profile (client-side)
+function assignNoteToProfile(noteId: string, profileId: string | null): void {
+  const assignments = getProfileAssignments()
+  if (profileId) {
+    assignments[noteId] = profileId
+  } else {
+    delete assignments[noteId]
+  }
+  saveProfileAssignments(assignments)
+}
+
+// Assign folder to profile (client-side)
+function assignFolderToProfile(folderId: string, profileId: string | null): void {
+  const assignments = getFolderAssignments()
+  if (profileId) {
+    assignments[folderId] = profileId
+  } else {
+    delete assignments[folderId]
+  }
+  saveFolderAssignments(assignments)
+}
+
+// Check if note belongs to profile
+function noteMatchesProfile(noteId: string, profileId: string | null): boolean {
+  const assignments = getProfileAssignments()
+  const noteProfileId = assignments[noteId]
+  
+  // If no assignment, treat as belonging to default profile
+  if (!noteProfileId) {
+    return profileId === null // null means default/unassigned
+  }
+  
+  return noteProfileId === profileId
+}
+
+// Check if folder belongs to profile
+function folderMatchesProfile(folderId: string, profileId: string | null): boolean {
+  const assignments = getFolderAssignments()
+  const folderProfileId = assignments[folderId]
+  
+  // If no assignment, treat as belonging to default profile
+  if (!folderProfileId) {
+    return profileId === null // null means default/unassigned
+  }
+  
+  return folderProfileId === profileId
+}
 
 // Helper function to ensure user is authenticated
 function ensureAuth() {
@@ -40,34 +150,55 @@ export async function uploadImage(file: File): Promise<string> {
   }
 }
 
-export async function createNote(title: string, content: string = ''): Promise<Note> {
+export async function createNote(title: string, content: string = '', profileId?: string): Promise<Note> {
   const userId = ensureAuth()
   
   try {
-    const record = await pb.collection(notesCollection).create({
+    // Determine target profile: explicit parameter or fall back to default profile
+    let targetProfileId: string | undefined = profileId
+    if (!targetProfileId) {
+      const defaultProfile = await getDefaultProfile()
+      targetProfileId = defaultProfile?.id
+    }
+
+    const noteData: any = {
       title,
       content,
-      user: userId
-    })
+      user: userId,
+      // Only include profile_id if we actually have one (avoid schema errors if field missing)
+      ...(targetProfileId ? { profile_id: targetProfileId } : {})
+    }
+    
+    const record = await pb.collection(notesCollection).create(noteData)
+    
+    // Preserve legacy local-storage mapping for backward compatibility
+    if (profileId) {
+      assignNoteToProfile(record.id, profileId)
+    }
+    
     return record as unknown as Note
   } catch (error: unknown) {
     if (isAutoCancelled(error)) {
-      // Auto-cancelled request, silently ignore
       console.log('Create note request was auto-cancelled')
       throw new Error('Request cancelled')
     }
     
-    const err = error as { status?: number; message?: string }
-    if (err.status === 400 && err.message?.includes('user')) {
-      // User field doesn't exist, create without it for now
-      console.warn('User field not found in notes collection. Creating note without user association.')
-      const record = await pb.collection(notesCollection).create({
-        title,
-        content
-      })
-      return record as unknown as Note
+    const err = error as { status?: number; message?: string; data?: any }
+    console.error('Create note error details:', err)
+    
+    // Retry with minimal required data (and profile_id if available)
+    const minimalData: any = {
+      title,
+      content,
+      ...(profileId ? { profile_id: profileId } : {})
     }
-    throw error
+    const minimalRecord = await pb.collection(notesCollection).create(minimalData)
+
+    if (profileId) {
+      assignNoteToProfile(minimalRecord.id, profileId)
+    }
+
+    return minimalRecord as unknown as Note
   }
 }
 
@@ -160,17 +291,87 @@ export async function updateNote(id: string, data: Partial<Note>): Promise<Note>
   ensureAuth()
   
   try {
-    // Update the note directly - no need to verify access first since we're authenticated
-    // and PocketBase will return 403/404 if we don't have access
-    const record = await pb.collection(notesCollection).update(id, data)
+    // Enhanced payload preparation for large content support
+    const preparedData: Partial<Note> = { ...data }
+    
+    // Trim title if it exceeds reasonable length
+    if (preparedData.title && preparedData.title.length > 1900) {
+      console.warn(`[updateNote] Title very long (${preparedData.title.length} chars), trimming to 1900`)
+      preparedData.title = preparedData.title.substring(0, 1900)
+    }
+    
+    // Enhanced payload size monitoring
+    const titleLength = preparedData.title?.length || 0
+    const contentLength = preparedData.content?.length || 0
+    const payloadJson = JSON.stringify(preparedData)
+    const payloadSize = new Blob([payloadJson]).size
+    
+    // Log detailed information for debugging
+    console.log(`[updateNote] Payload details:`, {
+      titleLength,
+      contentLength,
+      payloadSize: `${Math.round(payloadSize / 1024)}KB`,
+      noteId: id
+    })
+    
+    // Check for extremely large payloads (>10MB)
+    if (payloadSize > 10 * 1024 * 1024) {
+      console.warn(`[updateNote] Very large payload detected: ${Math.round(payloadSize / (1024 * 1024))}MB`)
+      
+      // For content over 10MB, we might need chunking or alternative approaches
+      if (contentLength > 10000000) { // 10M characters
+        throw new Error('Content is extremely large. Please consider breaking it into smaller sections.')
+      }
+    }
+    
+    // Validate content length doesn't exceed our new field limit
+    if (contentLength > 45000000) { // 45M chars (under our 50M limit with buffer)
+      throw new Error('Content exceeds maximum size limit. Please reduce the content size.')
+    }
+
+    // Update the note directly
+    const record = await pb.collection(notesCollection).update(id, preparedData)
+    
+
     
     return record as unknown as Note
-  } catch (error: unknown) {
-    if (isAutoCancelled(error)) {
-      console.log('Update note request was auto-cancelled')
-      throw new Error('Request cancelled')
+  } catch (error: any) {
+    // Enhanced error logging with more context
+    const errorDetails = {
+      noteId: id,
+      dataSize: JSON.stringify(data).length,
+      titleLength: data.title?.length || 0,
+      contentLength: data.content?.length || 0,
+      error
     }
-    console.error('notes-api updateNote failed:', error)
+    
+    console.error('notes-api updateNote failed with details:', errorDetails)
+    
+    // Enhanced error messages for better user feedback
+    if (error.status === 400) {
+      if (error.message?.includes('too large') || error.message?.includes('size')) {
+        throw new Error('Content is too large to save. Please reduce the size and try again.')
+      }
+      if (error.message?.includes('validation') || error.message?.includes('invalid')) {
+        throw new Error('Content contains invalid data. Please check your content and try again.')
+      }
+      // Generic 400 error with helpful message
+      throw new Error('Update failed: ' + (error.message || 'Invalid data') + '. Please check your data and try again.')
+    }
+    
+    if (error.status === 413) {
+      throw new Error('Content is too large for the server to process. Please reduce the size.')
+    }
+    
+    if (error.status === 422) {
+      throw new Error('Content validation failed. Please check your data format.')
+    }
+    
+    if (error.status >= 500) {
+      throw new Error('Server error occurred. Please try again in a moment.')
+    }
+    
+    // Re-throw with original message for other errors
     throw error
   }
 }
@@ -187,6 +388,57 @@ export async function deleteNote(id: string): Promise<boolean> {
       console.log('Delete note request was auto-cancelled')
       return false
     }
+    throw error
+  }
+}
+
+// Bulk delete notes functionality
+export async function bulkDeleteNotes(noteIds: string[]): Promise<{ success: string[], failed: string[] }> {
+  ensureAuth()
+  
+  if (!noteIds.length) {
+    throw new Error('No notes provided for deletion')
+  }
+  
+  const results = {
+    success: [] as string[],
+    failed: [] as string[]
+  }
+  
+  // Delete notes in batches to avoid overwhelming the server
+  const BATCH_SIZE = 5
+  const batches = []
+  
+  for (let i = 0; i < noteIds.length; i += BATCH_SIZE) {
+    batches.push(noteIds.slice(i, i + BATCH_SIZE))
+  }
+  
+  try {
+    for (const batch of batches) {
+      const deletePromises = batch.map(async (noteId) => {
+        try {
+          await pb.collection(notesCollection).delete(noteId)
+          results.success.push(noteId)
+          return { id: noteId, success: true }
+        } catch (error: unknown) {
+          if (isAutoCancelled(error)) {
+            console.log(`Delete note ${noteId} request was auto-cancelled`)
+            results.failed.push(noteId)
+            return { id: noteId, success: false, error: 'cancelled' }
+          }
+          console.error(`Failed to delete note ${noteId}:`, error)
+          results.failed.push(noteId)
+          return { id: noteId, success: false, error }
+        }
+      })
+      
+      await Promise.all(deletePromises)
+    }
+    
+    console.log(`Bulk delete completed: ${results.success.length} succeeded, ${results.failed.length} failed`)
+    return results
+  } catch (error: unknown) {
+    console.error('Bulk delete notes failed:', error)
     throw error
   }
 }
@@ -366,60 +618,123 @@ export async function unpinNote(id: string): Promise<Note> {
 }
 
 // Folder management functions
-export async function createFolder(name: string): Promise<Folder> {
+export async function createFolder(name: string, profileId?: string): Promise<Folder> {
   const userId = ensureAuth()
   
   try {
-    const record = await pb.collection(foldersCollection).create({
+    // Determine target profile (explicit or default)
+    let targetProfileId: string | undefined = profileId
+    if (!targetProfileId) {
+      const defaultProfile = await getDefaultProfile()
+      targetProfileId = defaultProfile?.id
+    }
+
+    const folderData: any = {
       name,
+      expanded: true,
       user: userId,
-      expanded: true  // Default to expanded
-    })
+      ...(targetProfileId ? { profile_id: targetProfileId } : {})
+    }
+    
+    const record = await pb.collection(foldersCollection).create(folderData)
+    
+    // Legacy mapping for backwards-compatibility
+    if (profileId) {
+      assignFolderToProfile(record.id, profileId)
+    }
+    
+    // Also store mapping when targetProfileId came from default selection
+    if (!profileId && targetProfileId) {
+      assignFolderToProfile(record.id, targetProfileId as string)
+    }
+    
     return record as unknown as Folder
   } catch (error: unknown) {
     if (isAutoCancelled(error)) {
       console.log('Create folder request was auto-cancelled')
       throw new Error('Request cancelled')
     }
-    console.error('notes-api createFolder failed:', error)
-    throw error
+    
+    const err = error as { status?: number; message?: string }
+    
+    // Try with minimal data
+    const minimalFolderData: any = {
+      name,
+      expanded: true,
+      user: userId,
+      ...(profileId ? { profile_id: profileId } : {})
+    }
+    const minimalRecord = await pb.collection(foldersCollection).create(minimalFolderData)
+    
+    // Assign to profile client-side
+    if (profileId) {
+      assignFolderToProfile(minimalRecord.id, profileId)
+    }
+    
+    // Additional mapping not needed here when profileId is absent
+    
+    return minimalRecord as unknown as Folder
   }
 }
 
-export async function getFolders(): Promise<Folder[]> {
+export async function getFolders(profileId?: string): Promise<Folder[]> {
   const userId = ensureAuth()
   
   try {
+    // Fetch all user folders first (server cannot yet filter null profile reliably)
     const records = await pb.collection(foldersCollection).getFullList({
       sort: 'name',
       filter: `user = "${userId}"`
     })
-    return records as unknown as Folder[]
+    
+    const foldersWithProfile = records.map(r => r as any)
+    
+    // Filter by profile id (server-side field) or legacy mapping fallback
+    const filteredFolders = foldersWithProfile.filter(folder => {
+      const folderProfileId = folder.profile_id ?? null
+      if (profileId) {
+        if (folderProfileId === profileId) return true
+        if (folderProfileId === null) return folderMatchesProfile(folder.id, profileId)
+        return false
+      }
+      // Viewing default/unassigned profile
+      if (!folderProfileId) {
+        return true
+      }
+      return folderMatchesProfile(folder.id, null)
+    })
+    
+    return filteredFolders as unknown as Folder[]
   } catch (error: unknown) {
     if (isAutoCancelled(error)) {
       console.log('Get folders request was auto-cancelled')
       return []
     }
     
-    const err = error as { status?: number }
+    const err = error as { status?: number; message?: string }
+    
+    // If user filter doesn't work, try without any filter and then filter client-side
     if (err.status === 400) {
-      // User field doesn't exist, get all folders for now
-      console.warn('User field not found in folders collection. Showing all folders.')
+      console.warn('User filter failed for folders, trying without filter')
       try {
         const records = await pb.collection(foldersCollection).getFullList({
           sort: 'name'
         })
-        return records as unknown as Folder[]
-      } catch (fallbackError: unknown) {
-        if (isAutoCancelled(fallbackError)) {
-          console.log('Fallback get folders request was auto-cancelled')
-          return []
-        }
-        console.error('Failed to fetch folders:', fallbackError)
+        
+        // Filter by profile client-side
+        const filteredFolders = records.filter(folder => 
+          folderMatchesProfile(folder.id, profileId || null)
+        )
+        
+        return filteredFolders as unknown as Folder[]
+      } catch (fallbackError) {
+        console.error('Even no-filter query failed for folders:', fallbackError)
         return []
       }
     }
-    throw error
+    
+    console.error('Failed to fetch folders:', error)
+    return []
   }
 }
 
@@ -498,6 +813,333 @@ export async function toggleFolderExpanded(id: string, expanded: boolean): Promi
       throw new Error('Request cancelled')
     }
     console.error('notes-api toggleFolderExpanded failed:', error)
+    throw error
+  }
+}
+
+// ==================== PROFILE MANAGEMENT ====================
+
+export async function createProfile(name: string, description?: string, color?: string, icon?: string): Promise<Profile> {
+  const userId = ensureAuth()
+  
+  try {
+    const record = await pb.collection(profilesCollection).create({
+      name,
+      description: description || '',
+      color: color || '#3b82f6', // Default blue color
+      icon: icon || 'User',
+      user: userId,
+      is_default: false
+    })
+    return record as unknown as Profile
+  } catch (error: unknown) {
+    if (isAutoCancelled(error)) {
+      console.log('Create profile request was auto-cancelled')
+      throw new Error('Request cancelled')
+    }
+    console.error('notes-api createProfile failed:', error)
+    throw error
+  }
+}
+
+export async function createDefaultProfile(): Promise<Profile> {
+  const userId = ensureAuth()
+  
+  try {
+    const defaultProfile = await pb.collection(profilesCollection).create({
+      name: 'Default',
+      description: 'Your default profile for notes',
+      color: '#3b82f6',
+      icon: 'home',
+      user: userId,
+      is_default: true
+    })
+    
+    return defaultProfile as unknown as Profile
+  } catch (error: unknown) {
+    if (isAutoCancelled(error)) {
+      console.log('Create default profile request was auto-cancelled')
+      throw new Error('Request cancelled')
+    }
+    console.error('notes-api createDefaultProfile failed:', error)
+    throw error
+  }
+}
+
+export async function getProfiles(): Promise<Profile[]> {
+  const userId = ensureAuth()
+  
+  try {
+    const records = await pb.collection(profilesCollection).getFullList({
+      sort: 'created',
+      filter: `user = "${userId}"`
+    })
+    return records as unknown as Profile[]
+  } catch (error: unknown) {
+    if (isAutoCancelled(error)) {
+      console.log('Get profiles request was auto-cancelled')
+      return []
+    }
+    console.error('notes-api getProfiles failed:', error)
+    throw error
+  }
+}
+
+export async function getProfile(id: string): Promise<Profile> {
+  const userId = ensureAuth()
+  
+  try {
+    const record = await pb.collection(profilesCollection).getOne(id)
+    
+    // Check ownership
+    if (record.user !== userId) {
+      throw new Error('Profile not found or access denied')
+    }
+    
+    return record as unknown as Profile
+  } catch (error: unknown) {
+    if (isAutoCancelled(error)) {
+      console.log('Get profile request was auto-cancelled')
+      throw new Error('Request cancelled')
+    }
+    
+    const err = error as { status?: number }
+    if (err.status === 404) {
+      throw new Error('Profile not found')
+    }
+    console.error('notes-api getProfile failed:', error)
+    throw error
+  }
+}
+
+export async function updateProfile(id: string, data: Partial<Profile>): Promise<Profile> {
+  const userId = ensureAuth()
+  
+  try {
+    // If setting as default, unset other defaults first
+    if (data.is_default) {
+      const profiles = await getProfiles()
+      const currentDefault = profiles.find(p => p.is_default && p.id !== id)
+      if (currentDefault) {
+        await pb.collection(profilesCollection).update(currentDefault.id!, { is_default: false })
+      }
+    }
+    
+    const record = await pb.collection(profilesCollection).update(id, data)
+    return record as unknown as Profile
+  } catch (error: unknown) {
+    if (isAutoCancelled(error)) {
+      console.log('Update profile request was auto-cancelled')
+      throw new Error('Request cancelled')
+    }
+    console.error('notes-api updateProfile failed:', error)
+    throw error
+  }
+}
+
+export async function deleteProfile(id: string): Promise<boolean> {
+  const userId = ensureAuth()
+  
+  try {
+    // Check if this is the last profile - prevent deletion
+    const profiles = await getProfiles()
+    if (profiles.length <= 1) {
+      throw new Error('Cannot delete the last profile. Create another profile first.')
+    }
+    
+    // If deleting default profile, make another one default
+    const profile = profiles.find(p => p.id === id)
+    if (profile?.is_default) {
+      const nextProfile = profiles.find(p => p.id !== id)
+      if (nextProfile) {
+        await updateProfile(nextProfile.id!, { is_default: true })
+      }
+    }
+    
+    // Move all notes from this profile to the default profile
+    const defaultProfile = profiles.find(p => p.is_default && p.id !== id) || profiles.find(p => p.id !== id)
+    if (defaultProfile) {
+      const notesInProfile = await getNotesByProfile(id)
+      for (const note of notesInProfile) {
+        await moveNoteToProfile(note.id!, defaultProfile.id!)
+      }
+    }
+    
+    await pb.collection(profilesCollection).delete(id)
+    return true
+  } catch (error: unknown) {
+    if (isAutoCancelled(error)) {
+      console.log('Delete profile request was auto-cancelled')
+      throw new Error('Request cancelled')
+    }
+    console.error('notes-api deleteProfile failed:', error)
+    throw error
+  }
+}
+
+export async function getDefaultProfile(): Promise<Profile | null> {
+  const userId = ensureAuth()
+  
+  try {
+    const records = await pb.collection(profilesCollection).getFullList({
+      filter: `user = "${userId}" && is_default = true`,
+      limit: 1
+    })
+    return records.length > 0 ? records[0] as unknown as Profile : null
+  } catch (error: unknown) {
+    if (isAutoCancelled(error)) {
+      console.log('Get default profile request was auto-cancelled')
+      return null
+    }
+    console.error('notes-api getDefaultProfile failed:', error)
+    return null
+  }
+}
+
+// ==================== PROFILE-AWARE NOTE FUNCTIONS ====================
+
+export async function getNotesByProfile(profileId: string | null): Promise<Note[]> {
+  const userId = ensureAuth()
+  
+  try {
+    // Get all user notes first
+    const records = await pb.collection(notesCollection).getFullList({
+      sort: '-updated',
+      filter: `user = "${userId}"`
+    })
+    
+    // Transform legacy image URLs in all notes
+    const notesWithFixedUrls = records.map(record => ({
+      ...record,
+      content: normalizeImageUrls(record.content || '')
+    }))
+    
+    // Filter by profile_id field (preferred) or legacy local assignment fallback
+    const filteredNotes = notesWithFixedUrls.filter(note => {
+      const noteProfileId = (note as any).profile_id ?? null
+
+      if (profileId) {
+        if (noteProfileId === profileId) {
+          return true
+        }
+        if (noteProfileId === null) {
+          // legacy mapping fallback
+          return noteMatchesProfile(note.id, profileId)
+        }
+        return false
+      }
+
+      // When profileId is null (default/unassigned) include notes that have no profile
+      if (!noteProfileId) {
+        return true
+      }
+
+      // Legacy fallback: use local assignment mapping if available
+      return noteMatchesProfile(note.id, profileId)
+    })
+    
+    return filteredNotes as unknown as Note[]
+  } catch (error: unknown) {
+    if (isAutoCancelled(error)) {
+      console.log('Get notes by profile request was auto-cancelled')
+      return []
+    }
+    
+    const err = error as { status?: number; message?: string }
+    
+    // If user filter doesn't work, try without any filter and then filter client-side
+    if (err.status === 400) {
+      console.warn('User filter failed, trying without filter')
+      try {
+        const records = await pb.collection(notesCollection).getFullList({
+          sort: '-updated'
+        })
+        
+        const notesWithFixedUrls = records.map(record => ({
+          ...record,
+          content: normalizeImageUrls(record.content || '')
+        }))
+        
+        // Filter by profile_id field (preferred) or legacy local assignment fallback
+        const filteredNotes = notesWithFixedUrls.filter(note => {
+          const noteProfileId = (note as any).profile_id ?? null
+
+          if (profileId) {
+            if (noteProfileId === profileId) return true
+            if (noteProfileId === null) return noteMatchesProfile(note.id, profileId)
+            return false
+          }
+
+          // When profileId is null (default/unassigned) include notes that have no profile
+          if (!noteProfileId) {
+            return true
+          }
+
+          // Legacy fallback: use local assignment mapping if available
+          return noteMatchesProfile(note.id, profileId)
+        })
+        
+        return filteredNotes as unknown as Note[]
+      } catch (fallbackError) {
+        console.error('Even no-filter query failed:', fallbackError)
+        return []
+      }
+    }
+    
+    console.error('notes-api getNotesByProfile failed:', error)
+    return []
+  }
+}
+
+export async function moveNoteToProfile(noteId: string, profileId: string | null): Promise<Note> {
+  ensureAuth()
+  
+  try {
+    const record = await pb.collection(notesCollection).update(noteId, { 
+      profile_id: profileId || null
+    })
+    
+    // Transform legacy image URLs in the updated note
+    const noteWithFixedUrls = {
+      ...record,
+      content: normalizeImageUrls(record.content || '')
+    }
+    
+    return noteWithFixedUrls as unknown as Note
+  } catch (error: unknown) {
+    if (isAutoCancelled(error)) {
+      console.log('Move note to profile request was auto-cancelled')
+      throw new Error('Request cancelled')
+    }
+    console.error('notes-api moveNoteToProfile failed:', error)
+    throw error
+  }
+}
+
+export async function createNoteInProfile(title: string, content: string = '', profileId?: string): Promise<Note> {
+  const userId = ensureAuth()
+  
+  try {
+    // If no profileId provided, use the default profile
+    let targetProfileId: string | undefined = profileId
+    if (!targetProfileId) {
+      const defaultProfile = await getDefaultProfile()
+      targetProfileId = defaultProfile?.id || undefined
+    }
+    
+    const record = await pb.collection(notesCollection).create({
+      title,
+      content,
+      user: userId,
+      profile_id: targetProfileId || undefined
+    })
+    return record as unknown as Note
+  } catch (error: unknown) {
+    if (isAutoCancelled(error)) {
+      console.log('Create note in profile request was auto-cancelled')
+      throw new Error('Request cancelled')
+    }
+    console.error('notes-api createNoteInProfile failed:', error)
     throw error
   }
 } 

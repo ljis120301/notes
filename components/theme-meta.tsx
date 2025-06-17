@@ -7,16 +7,14 @@ export function ThemeMeta() {
   const { resolvedTheme } = useTheme()
 
   useEffect(() => {
-    // Remove existing theme-color meta tags
-    const existingMeta = document.querySelector('meta[name="theme-color"]')
-    if (existingMeta) {
-      existingMeta.remove()
+    // Find or create the light-theme meta tag (no media attribute)
+    let meta = document.querySelector('meta[name="theme-color"]:not([media])') as HTMLMetaElement | null
+    if (!meta) {
+      meta = document.createElement('meta')
+      meta.name = 'theme-color'
+      document.head.appendChild(meta)
     }
 
-    // Create new meta tag with theme-appropriate color
-    const meta = document.createElement('meta')
-    meta.name = 'theme-color'
-    
     // Set color based on current theme (using exact sidebar colors)
     switch (resolvedTheme) {
       case 'dark':
@@ -31,15 +29,15 @@ export function ThemeMeta() {
         break
     }
 
-    // Add media attribute for dark mode detection as fallback
-    const darkModeMeta = document.createElement('meta')
-    darkModeMeta.name = 'theme-color'
-    darkModeMeta.media = '(prefers-color-scheme: dark)'
-    darkModeMeta.content = '#34363f'
-
-    // Add the meta tags to the document head
-    document.head.appendChild(meta)
-    document.head.appendChild(darkModeMeta)
+    // Dark-scheme meta (kept constant)
+    let darkModeMeta = document.querySelector('meta[name="theme-color"][media="(prefers-color-scheme: dark)"]') as HTMLMetaElement | null
+    if (!darkModeMeta) {
+      darkModeMeta = document.createElement('meta')
+      darkModeMeta.name = 'theme-color'
+      darkModeMeta.media = '(prefers-color-scheme: dark)'
+      darkModeMeta.content = '#34363f'
+      document.head.appendChild(darkModeMeta)
+    }
 
     // Also update the status bar style for iOS Safari
     let statusBarMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
@@ -59,14 +57,6 @@ export function ThemeMeta() {
       default:
         statusBarMeta.setAttribute('content', 'default')
         break
-    }
-
-    // Cleanup function
-    return () => {
-      const metaToRemove = document.querySelector('meta[name="theme-color"]')
-      if (metaToRemove) {
-        metaToRemove.remove()
-      }
     }
   }, [resolvedTheme])
 

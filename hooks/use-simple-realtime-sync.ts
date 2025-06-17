@@ -36,7 +36,6 @@ export function useSimpleRealtimeSync(): SimpleRealtimeSyncResult {
       const lastEventTimestamp = lastEventTime?.getTime() || 0
       
       if (lastEventTimestamp < fiveMinutesAgo && isConnected) {
-        console.log('Simple real-time: No events received recently, reconnecting...')
         setIsConnected(false)
         if (unsubscribeNotesRef.current) {
           unsubscribeNotesRef.current()
@@ -72,46 +71,34 @@ export function useSimpleRealtimeSync(): SimpleRealtimeSyncResult {
           queryClient.removeQueries({ queryKey: query.queryKey })
         }
       })
-      
-      console.log('Simple real-time: Cache cleanup completed')
     }, 10 * 60 * 1000) // Clean every 10 minutes
   }, [queryClient])
 
   const connect = useCallback(async () => {
     if (unsubscribeNotesRef.current || unsubscribeFoldersRef.current) {
-      console.log('Simple real-time: Already connected, skipping')
       return
     }
 
     if (!pb.authStore.isValid) {
-      console.log('Simple real-time: Not authenticated, skipping connection')
       return
     }
 
     if (maxAttemptsReached) {
-      console.log('Simple real-time: Max connection attempts reached, skipping')
       return
     }
 
     try {
-      console.log('Simple real-time: Attempting to connect to:', pb.baseUrl)
-      
       // Subscribe to notes collection
       const unsubscribeNotes = await pb.collection(notesCollection).subscribe('*', (event) => {
         setLastEventTime(new Date())
-        
-        // Process the notes event
+
         try {
           const { action, record } = event
-          
           if (!record || !record.id) {
             return
           }
 
-          console.log('Simple real-time: Notes event:', { action, noteId: record.id, folder_id: record.folder_id })
-
-          // Normalize the note - INCLUDING folder_id
-          const normalizedNote: Note = {
+          const normalizedNote: Note & { profile_id?: string } = {
             id: record.id,
             title: record.title || 'Untitled',
             content: normalizeImageUrls(record.content || ''),
@@ -119,63 +106,67 @@ export function useSimpleRealtimeSync(): SimpleRealtimeSyncResult {
             created: record.created,
             updated: record.updated,
             pinned: record.pinned || false,
-            folder_id: record.folder_id || undefined,  // CRITICAL: Include folder_id
+            folder_id: record.folder_id || undefined,
+            profile_id: record.profile_id || undefined,
           }
 
           if (action === 'update' || action === 'create') {
-            // Always update individual note cache with real-time data (server is source of truth)
+            // Update individual note cache
             queryClient.setQueryData(['note', record.id], normalizedNote)
-            
-            // Update notes list with careful deduplication
+
+            // Update notes list with deduplication
             queryClient.setQueryData(['notes'], (oldNotes: Note[] = []) => {
-              // Remove any existing instance first to prevent duplicates
               const filteredNotes = oldNotes.filter(n => n.id !== record.id)
-              
               if (action === 'create') {
-                // For new notes, only add if it's truly new (not already in cache)
-                const existingNote = oldNotes.find(n => n.id === record.id)
-                if (existingNote) {
-                  // Note already exists (created locally), just update it in-place
-                  const originalIndex = oldNotes.findIndex(n => n.id === record.id)
-                  if (originalIndex >= 0) {
-                    const newNotes = [...oldNotes]
-                    newNotes[originalIndex] = normalizedNote
-                    return newNotes
-                  }
-                }
-                // Truly new note, add to the beginning
                 return [normalizedNote, ...filteredNotes]
               } else {
-                // For updates, always apply the real-time version (server is source of truth)
                 const originalIndex = oldNotes.findIndex(n => n.id === record.id)
                 if (originalIndex >= 0) {
                   const newNotes = [...filteredNotes]
                   newNotes.splice(originalIndex, 0, normalizedNote)
                   return newNotes
-                } else {
-                  // If not found, add to beginning (shouldn't happen for updates)
-                  return [normalizedNote, ...filteredNotes]
                 }
+                return [normalizedNote, ...filteredNotes]
               }
             })
-            
-            // Minimal invalidation to trigger UI updates
-            queryClient.invalidateQueries({ 
-              queryKey: ['notes'], 
+
+            queryClient.invalidateQueries({
+              queryKey: ['notes'],
               exact: true,
-              refetchType: 'none' // Don't refetch, just mark as stale
+              refetchType: 'none'
             })
+
+            // Update profile-specific cache so sidebars refresh
+            const profileKey = normalizedNote.profile_id || 'no-profile'
+            // Ensure note exists in that list
+            queryClient.setQueryData(['notes-by-profile', profileKey], (oldNotes: Note[] = []) => {
+              const others = oldNotes.filter(n => n.id !== record.id)
+              return [normalizedNote, ...others]
+            })
+            queryClient.invalidateQueries({ queryKey: ['notes-by-profile', profileKey], exact: true, refetchType: 'none' })
+
+            const profileKeyUpd = normalizedNote.profile_id || 'no-profile'
+            queryClient.setQueryData(['notes-by-profile', profileKeyUpd], (oldNotes: Note[] = []) => {
+              const idx = oldNotes.findIndex(n => n.id === record.id)
+              if (idx === -1) return oldNotes // note not in list of another profile
+              const newArr = [...oldNotes]
+              newArr[idx] = normalizedNote
+              return newArr
+            })
+            queryClient.invalidateQueries({ queryKey: ['notes-by-profile', profileKeyUpd], exact: true, refetchType: 'none' })
           } else if (action === 'delete') {
-            // Remove from notes list
             queryClient.setQueryData(['notes'], (oldNotes: Note[] = []) =>
               oldNotes.filter(n => n.id !== record.id)
             )
-            
-            // Remove from individual cache
             queryClient.removeQueries({ queryKey: ['note', record.id] })
-            
-            // Invalidate notes list
             queryClient.invalidateQueries({ queryKey: ['notes'], exact: true })
+
+            // Remove from profile-specific list
+            const profileKeyDel = normalizedNote.profile_id || 'no-profile'
+            queryClient.setQueryData(['notes-by-profile', profileKeyDel], (oldNotes: Note[] = []) =>
+              oldNotes.filter(n => n.id !== record.id)
+            )
+            queryClient.invalidateQueries({ queryKey: ['notes-by-profile', profileKeyDel], exact: true, refetchType: 'none' })
           }
         } catch (error) {
           console.error('Simple real-time: Error processing notes event:', error)
@@ -185,63 +176,48 @@ export function useSimpleRealtimeSync(): SimpleRealtimeSyncResult {
       // Subscribe to folders collection
       const unsubscribeFolders = await pb.collection(foldersCollection).subscribe('*', (event) => {
         setLastEventTime(new Date())
-        
-        // Process the folders event
+
         try {
           const { action, record } = event
-          
           if (!record || !record.id) {
             return
           }
 
-          console.log('Simple real-time: Folders event:', { action, folderId: record.id, name: record.name })
-
-          // Normalize the folder
-          const normalizedFolder: Folder = {
+          const normalizedFolder: Folder & { profile_id?: string } = {
             id: record.id,
             name: record.name || 'Untitled Folder',
             user: record.user,
             expanded: record.expanded !== undefined ? record.expanded : true,
             created: record.created,
             updated: record.updated,
+            profile_id: record.profile_id || undefined,
           }
 
           if (action === 'update' || action === 'create') {
-            // Update folders list
             queryClient.setQueryData(['folders'], (oldFolders: Folder[] = []) => {
-              // Remove any existing instance first to prevent duplicates
               const filteredFolders = oldFolders.filter(f => f.id !== record.id)
-              
               if (action === 'create') {
-                // For new folders, add to the list and sort
                 return [...filteredFolders, normalizedFolder].sort((a, b) => a.name.localeCompare(b.name))
               } else {
-                // For updates, maintain the folder in its current position but update data
                 const originalIndex = oldFolders.findIndex(f => f.id === record.id)
                 if (originalIndex >= 0) {
                   const newFolders = [...filteredFolders]
                   newFolders.splice(originalIndex, 0, normalizedFolder)
                   return newFolders.sort((a, b) => a.name.localeCompare(b.name))
-                } else {
-                  // If not found, add and sort (shouldn't happen for updates)
-                  return [...filteredFolders, normalizedFolder].sort((a, b) => a.name.localeCompare(b.name))
                 }
+                return [...filteredFolders, normalizedFolder].sort((a, b) => a.name.localeCompare(b.name))
               }
             })
-            
-            // Minimal invalidation to trigger UI updates
-            queryClient.invalidateQueries({ 
-              queryKey: ['folders'], 
+
+            queryClient.invalidateQueries({
+              queryKey: ['folders'],
               exact: true,
-              refetchType: 'none' // Don't refetch, just mark as stale
+              refetchType: 'none'
             })
           } else if (action === 'delete') {
-            // Remove from folders list
             queryClient.setQueryData(['folders'], (oldFolders: Folder[] = []) =>
               oldFolders.filter(f => f.id !== record.id)
             )
-            
-            // Invalidate folders list
             queryClient.invalidateQueries({ queryKey: ['folders'], exact: true })
           }
         } catch (error) {
@@ -251,9 +227,9 @@ export function useSimpleRealtimeSync(): SimpleRealtimeSyncResult {
 
       unsubscribeNotesRef.current = unsubscribeNotes
       unsubscribeFoldersRef.current = unsubscribeFolders
+
       setIsConnected(true)
       setConnectionAttempts(0) // Reset on successful connection
-      console.log('Simple real-time: Successfully connected to both notes and folders collections!')
 
     } catch (error) {
       console.error('Simple real-time: Connection failed:', error)
@@ -348,7 +324,6 @@ export function useSimpleRealtimeSync(): SimpleRealtimeSyncResult {
   useEffect(() => {
     if (!isConnected && pb.authStore.isValid && !maxAttemptsReached) {
       const reconnectTimer = setTimeout(() => {
-        console.log('Simple real-time: Attempting auto-reconnect...')
         connect()
       }, 5000) // Try to reconnect after 5 seconds
       
