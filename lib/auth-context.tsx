@@ -13,10 +13,6 @@ interface User {
   avatar?: string
 }
 
-interface OTPRequestResult {
-  otpId: string
-}
-
 interface AuthContextType {
   user: User | null
   loading: boolean
@@ -197,7 +193,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: authData.id,
         email: authData.email,
         name: authData.name,
-        avatar: (authData as any).avatar
+        avatar: (authData as User & { avatar?: string }).avatar
       }
       
       setUser(userData)
@@ -246,7 +242,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: authData.id,
         email: authData.email,
         name: authData.name,
-        avatar: (authData as any).avatar
+        avatar: (authData as User & { avatar?: string }).avatar
       }
       
       setUser(userData)

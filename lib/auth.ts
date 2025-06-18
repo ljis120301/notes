@@ -74,7 +74,7 @@ export async function signupWithOTP(email: string, name?: string): Promise<OTPRe
         emailVisibility: false
       })
       console.log('✅ New user account created')
-    } catch (createError: unknown) {
+    } catch {
       // If user already exists, that's okay - we'll proceed with OTP
       console.log('ℹ️ User might already exist, proceeding with OTP request')
     }

@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Search, FileText, Sparkles, Plus, Clock, User, Tag, Eye, Globe } from 'lucide-react'
+import { Search, FileText, Sparkles, Plus, User, Tag, Eye, Globe } from 'lucide-react'
 import { getTemplates, incrementTemplateUsage, DEFAULT_TEMPLATES } from '@/lib/templates-api'
 import { Template, Note } from '@/lib/pocketbase'
 import { createNote } from '@/lib/notes-api'

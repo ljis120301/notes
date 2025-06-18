@@ -161,7 +161,7 @@ export async function createNote(title: string, content: string = '', profileId?
       targetProfileId = defaultProfile?.id
     }
 
-    const noteData: any = {
+    const noteData: Partial<Note> & { title: string; content: string; user: string } = {
       title,
       content,
       user: userId,
@@ -183,11 +183,11 @@ export async function createNote(title: string, content: string = '', profileId?
       throw new Error('Request cancelled')
     }
     
-    const err = error as { status?: number; message?: string; data?: any }
+    const err = error as { status?: number; message?: string; data?: Record<string, unknown> }
     console.error('Create note error details:', err)
     
     // Retry with minimal required data (and profile_id if available)
-    const minimalData: any = {
+    const minimalData: Partial<Note> & { title: string; content: string } = {
       title,
       content,
       ...(profileId ? { profile_id: profileId } : {})
@@ -332,10 +332,8 @@ export async function updateNote(id: string, data: Partial<Note>): Promise<Note>
     // Update the note directly
     const record = await pb.collection(notesCollection).update(id, preparedData)
     
-
-    
     return record as unknown as Note
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Enhanced error logging with more context
     const errorDetails = {
       noteId: id,
@@ -347,27 +345,29 @@ export async function updateNote(id: string, data: Partial<Note>): Promise<Note>
     
     console.error('notes-api updateNote failed with details:', errorDetails)
     
+    const err = error as { status?: number; message?: string }
+    
     // Enhanced error messages for better user feedback
-    if (error.status === 400) {
-      if (error.message?.includes('too large') || error.message?.includes('size')) {
+    if (err.status === 400) {
+      if (err.message?.includes('too large') || err.message?.includes('size')) {
         throw new Error('Content is too large to save. Please reduce the size and try again.')
       }
-      if (error.message?.includes('validation') || error.message?.includes('invalid')) {
+      if (err.message?.includes('validation') || err.message?.includes('invalid')) {
         throw new Error('Content contains invalid data. Please check your content and try again.')
       }
       // Generic 400 error with helpful message
-      throw new Error('Update failed: ' + (error.message || 'Invalid data') + '. Please check your data and try again.')
+      throw new Error('Update failed: ' + (err.message || 'Invalid data') + '. Please check your data and try again.')
     }
     
-    if (error.status === 413) {
+    if (err.status === 413) {
       throw new Error('Content is too large for the server to process. Please reduce the size.')
     }
     
-    if (error.status === 422) {
+    if (err.status === 422) {
       throw new Error('Content validation failed. Please check your data format.')
     }
     
-    if (error.status >= 500) {
+    if (err.status && err.status >= 500) {
       throw new Error('Server error occurred. Please try again in a moment.')
     }
     
@@ -629,7 +629,7 @@ export async function createFolder(name: string, profileId?: string): Promise<Fo
       targetProfileId = defaultProfile?.id
     }
 
-    const folderData: any = {
+    const folderData: Partial<Folder> & { name: string; expanded: boolean; user: string } = {
       name,
       expanded: true,
       user: userId,
@@ -655,10 +655,8 @@ export async function createFolder(name: string, profileId?: string): Promise<Fo
       throw new Error('Request cancelled')
     }
     
-    const err = error as { status?: number; message?: string }
-    
     // Try with minimal data
-    const minimalFolderData: any = {
+    const minimalFolderData: Partial<Folder> & { name: string; expanded: boolean; user: string } = {
       name,
       expanded: true,
       user: userId,
@@ -687,21 +685,21 @@ export async function getFolders(profileId?: string): Promise<Folder[]> {
       filter: `user = "${userId}"`
     })
     
-    const foldersWithProfile = records.map(r => r as any)
+    const foldersWithProfile = records.map(r => r as unknown as Folder & { profile_id?: string })
     
     // Filter by profile id (server-side field) or legacy mapping fallback
     const filteredFolders = foldersWithProfile.filter(folder => {
       const folderProfileId = folder.profile_id ?? null
       if (profileId) {
         if (folderProfileId === profileId) return true
-        if (folderProfileId === null) return folderMatchesProfile(folder.id, profileId)
+        if (folderProfileId === null && folder.id) return folderMatchesProfile(folder.id, profileId)
         return false
       }
       // Viewing default/unassigned profile
       if (!folderProfileId) {
         return true
       }
-      return folderMatchesProfile(folder.id, null)
+      return folder.id ? folderMatchesProfile(folder.id, null) : false
     })
     
     return filteredFolders as unknown as Folder[]
@@ -727,8 +725,8 @@ export async function getFolders(profileId?: string): Promise<Folder[]> {
         )
         
         return filteredFolders as unknown as Folder[]
-      } catch (fallbackError) {
-        console.error('Even no-filter query failed for folders:', fallbackError)
+      } catch (_fallbackError) {
+        console.error('Even no-filter query failed for folders:', _fallbackError)
         return []
       }
     }
@@ -913,7 +911,7 @@ export async function getProfile(id: string): Promise<Profile> {
 }
 
 export async function updateProfile(id: string, data: Partial<Profile>): Promise<Profile> {
-  const userId = ensureAuth()
+  ensureAuth()
   
   try {
     // If setting as default, unset other defaults first
@@ -938,7 +936,7 @@ export async function updateProfile(id: string, data: Partial<Profile>): Promise
 }
 
 export async function deleteProfile(id: string): Promise<boolean> {
-  const userId = ensureAuth()
+  ensureAuth()
   
   try {
     // Check if this is the last profile - prevent deletion
@@ -1016,13 +1014,13 @@ export async function getNotesByProfile(profileId: string | null): Promise<Note[
     
     // Filter by profile_id field (preferred) or legacy local assignment fallback
     const filteredNotes = notesWithFixedUrls.filter(note => {
-      const noteProfileId = (note as any).profile_id ?? null
+      const noteProfileId = (note as unknown as Note & { profile_id?: string }).profile_id ?? null
 
       if (profileId) {
         if (noteProfileId === profileId) {
           return true
         }
-        if (noteProfileId === null) {
+        if (noteProfileId === null && note.id) {
           // legacy mapping fallback
           return noteMatchesProfile(note.id, profileId)
         }
@@ -1035,7 +1033,7 @@ export async function getNotesByProfile(profileId: string | null): Promise<Note[
       }
 
       // Legacy fallback: use local assignment mapping if available
-      return noteMatchesProfile(note.id, profileId)
+      return note.id ? noteMatchesProfile(note.id, profileId) : false
     })
     
     return filteredNotes as unknown as Note[]
@@ -1062,11 +1060,11 @@ export async function getNotesByProfile(profileId: string | null): Promise<Note[
         
         // Filter by profile_id field (preferred) or legacy local assignment fallback
         const filteredNotes = notesWithFixedUrls.filter(note => {
-          const noteProfileId = (note as any).profile_id ?? null
+          const noteProfileId = (note as unknown as Note & { profile_id?: string }).profile_id ?? null
 
           if (profileId) {
             if (noteProfileId === profileId) return true
-            if (noteProfileId === null) return noteMatchesProfile(note.id, profileId)
+            if (noteProfileId === null && note.id) return noteMatchesProfile(note.id, profileId)
             return false
           }
 
@@ -1076,7 +1074,7 @@ export async function getNotesByProfile(profileId: string | null): Promise<Note[
           }
 
           // Legacy fallback: use local assignment mapping if available
-          return noteMatchesProfile(note.id, profileId)
+          return note.id ? noteMatchesProfile(note.id, profileId) : false
         })
         
         return filteredNotes as unknown as Note[]

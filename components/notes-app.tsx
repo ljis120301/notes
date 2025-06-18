@@ -22,7 +22,7 @@ export function NotesApp() {
   const queryClient = useQueryClient()
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null)
   const sidebarRef = useRef<{ refreshNotes: () => void } | null>(null)
-  const [isNavigating, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
   
   // Auto-setup templates and profiles when user is authenticated
   useEffect(() => {

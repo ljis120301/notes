@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronsUpDown, Plus, Settings, Briefcase, GraduationCap, Home, User } from "lucide-react"
+import { Check, ChevronsUpDown, Plus, Briefcase, GraduationCap, Home, User } from "lucide-react"
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { cn } from "@/lib/utils"
@@ -31,7 +31,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Profile } from '@/lib/pocketbase'
-import { getProfiles, createProfile, updateProfile, deleteProfile } from '@/lib/notes-api'
+import { getProfiles, createProfile } from '@/lib/notes-api'
 import { pb } from '@/lib/pocketbase'
 
 interface ProfileSelectorProps {

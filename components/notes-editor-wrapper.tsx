@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react'
 import { SimpleEditor, SimpleEditorRef } from './tiptap-templates/simple/simple-editor'
 import { Button } from '@/components/ui/button'
-import { Trash2, Share, FileText, Download, Upload, ChevronDown, FolderOpen, CheckCircle } from 'lucide-react'
+import { Trash2, Share, FileText, Download, Upload, CheckCircle } from 'lucide-react'
 import { Note } from '@/lib/pocketbase'
 import { deleteNote } from '@/lib/notes-api'
 import { toast } from 'sonner'
@@ -46,7 +46,6 @@ import { DocumentSizeIndicator } from '@/components/document-size-indicator'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { SaveAsTemplateDialog } from '@/components/save-as-template-dialog'
-import { cn } from '@/lib/utils'
 
 interface NotesEditorWrapperProps {
   note: Note
@@ -77,7 +76,6 @@ const NotesEditorWrapper = ({
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
   const [importProgress, setImportProgress] = useState(0)
   const [isImporting, setIsImporting] = useState(false)
-  const [dragActive, setDragActive] = useState(false)
 
   const handleExport = useCallback(async (format: ExportFormat) => {
     const editor = editorRef.current?.editor
