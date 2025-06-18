@@ -4,9 +4,12 @@ import TurndownService from 'turndown'
 import { saveAs } from 'file-saver'
 
 declare module "@tiptap/react" {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface Commands<ReturnType> {
     documentConverter: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       exportDocument: (format: 'pdf' | 'docx' | 'markdown' | 'html' | 'json') => any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       importDocument: (file: File) => any
     }
   }

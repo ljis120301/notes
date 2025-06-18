@@ -2,7 +2,7 @@
 
 import { useState, useMemo, forwardRef, useImperativeHandle, useCallback, useEffect, memo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Search, FileText, Plus, Pin, Folder, FolderOpen, FolderPlus, Edit3, Trash2, ChevronRight, Check, X } from 'lucide-react'
+import { Search, FileText, Plus, Pin, Folder, FolderOpen, FolderPlus, Edit3, Trash2, ChevronRight, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -12,8 +12,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import {AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
-import { Note, Folder as FolderType, Profile } from '@/lib/pocketbase'
-import { getNotes, searchNotes, createNote, pinNote, unpinNote, getFolders, createFolder, updateFolder, deleteFolder, moveNoteToFolder, toggleFolderExpanded, bulkDeleteNotes, getNotesByProfile, createNoteInProfile, getNote } from '@/lib/notes-api'
+import { Note, Folder as FolderType } from '@/lib/pocketbase'
+import { searchNotes, createNote, pinNote, unpinNote, getFolders, createFolder, updateFolder, deleteFolder, moveNoteToFolder, bulkDeleteNotes, getNotesByProfile, getNote } from '@/lib/notes-api'
 import { ProfileSelector } from '@/components/profile-selector'
 import { useProfile } from '@/lib/profile-context'
 
@@ -38,21 +38,6 @@ function isAutoCancelled(error: unknown): boolean {
   return err?.isAbort === true || 
          err?.message?.includes('autocancelled') || 
          err?.status === 0
-}
-
-// Helper function to strip HTML tags and get plain text
-function stripHtmlTags(html: string): string {
-  // Create a temporary div element to parse HTML
-  const tempDiv = document.createElement('div')
-  
-  // Add spaces around block-level elements to preserve spacing
-  const htmlWithSpaces = html.replace(/<\/(h[1-6]|p|div|section|article|header|footer|main|aside|nav|blockquote|pre|hr|br)>/gi, '</$1> ')
-  
-  tempDiv.innerHTML = htmlWithSpaces
-  // Get text content and clean up extra whitespace
-  const textContent = tempDiv.textContent || tempDiv.innerText || ''
-  // Clean up multiple spaces and line breaks
-  return textContent.replace(/\s+/g, ' ').trim()
 }
 
 // Ultra-lightweight tag stripper for quick preview – avoids DOM allocations
@@ -758,7 +743,7 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
       mutationFn: async (name: string) => {
         return await createFolder(name, selectedProfile?.id)
       },
-      onSuccess: (newFolder) => {
+      onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['folders-by-profile', selectedProfile?.id || 'no-profile'] })
       },
       onError: (error: unknown) => {
@@ -773,7 +758,7 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
       mutationFn: async ({ id, data }: { id: string, data: Partial<FolderType> }) => {
         return await updateFolder(id, data)
       },
-      onSuccess: (updatedFolder) => {
+      onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['folders-by-profile', selectedProfile?.id || 'no-profile'] })
       },
       onError: (error: unknown) => {
@@ -786,7 +771,7 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
     // Delete folder mutation
     const deleteFolderMutation = useMutation({
       mutationFn: deleteFolder,
-      onSuccess: (_, deletedFolderId) => {
+      onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['folders-by-profile', selectedProfile?.id || 'no-profile'] })
         // Refresh notes to show any that were moved out of the deleted folder
         refetch()
