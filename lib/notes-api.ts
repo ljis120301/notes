@@ -935,7 +935,7 @@ export async function updateProfile(id: string, data: Partial<Profile>): Promise
   }
 }
 
-export async function deleteProfile(id: string): Promise<boolean> {
+export async function deleteProfile(id: string): Promise<{ deletedNotesCount: number }> {
   ensureAuth()
   
   try {
@@ -943,6 +943,20 @@ export async function deleteProfile(id: string): Promise<boolean> {
     const profiles = await getProfiles()
     if (profiles.length <= 1) {
       throw new Error('Cannot delete the last profile. Create another profile first.')
+    }
+    
+    // Get all notes from this profile before deletion
+    const notesInProfile = await getNotesByProfile(id)
+    const notesCount = notesInProfile.length
+    
+    // Delete all notes from this profile
+    for (const note of notesInProfile) {
+      try {
+        await deleteNote(note.id!)
+      } catch (error) {
+        console.warn(`Failed to delete note ${note.id}:`, error)
+        // Continue with other notes even if one fails
+      }
     }
     
     // If deleting default profile, make another one default
@@ -954,17 +968,10 @@ export async function deleteProfile(id: string): Promise<boolean> {
       }
     }
     
-    // Move all notes from this profile to the default profile
-    const defaultProfile = profiles.find(p => p.is_default && p.id !== id) || profiles.find(p => p.id !== id)
-    if (defaultProfile) {
-      const notesInProfile = await getNotesByProfile(id)
-      for (const note of notesInProfile) {
-        await moveNoteToProfile(note.id!, defaultProfile.id!)
-      }
-    }
-    
+    // Delete the profile itself
     await pb.collection(profilesCollection).delete(id)
-    return true
+    
+    return { deletedNotesCount: notesCount }
   } catch (error: unknown) {
     if (isAutoCancelled(error)) {
       console.log('Delete profile request was auto-cancelled')
