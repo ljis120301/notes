@@ -872,7 +872,25 @@ export async function getProfiles(): Promise<Profile[]> {
       sort: 'created',
       filter: `user = "${userId}"`
     })
-    return records as unknown as Profile[]
+    
+    const profiles = records as unknown as Profile[]
+    
+    // Check for multiple defaults and fix it
+    const defaultProfiles = profiles.filter(p => p.is_default)
+    if (defaultProfiles.length > 1) {
+      console.warn(`Found ${defaultProfiles.length} default profiles, fixing...`)
+      
+      // Keep the first one as default, unset the rest
+      const profileToKeep = defaultProfiles[0]
+      for (let i = 1; i < defaultProfiles.length; i++) {
+        await pb.collection(profilesCollection).update(defaultProfiles[i].id!, { is_default: false })
+        console.log(`Removed default status from profile: ${defaultProfiles[i].name}`)
+        // Update local array
+        defaultProfiles[i].is_default = false
+      }
+    }
+    
+    return profiles
   } catch (error: unknown) {
     if (isAutoCancelled(error)) {
       console.log('Get profiles request was auto-cancelled')
@@ -914,15 +932,19 @@ export async function updateProfile(id: string, data: Partial<Profile>): Promise
   ensureAuth()
   
   try {
-    // If setting as default, unset other defaults first
+    // If setting as default, unset ALL other defaults first to ensure only one default
     if (data.is_default) {
       const profiles = await getProfiles()
-      const currentDefault = profiles.find(p => p.is_default && p.id !== id)
-      if (currentDefault) {
-        await pb.collection(profilesCollection).update(currentDefault.id!, { is_default: false })
+      const otherDefaults = profiles.filter(p => p.is_default && p.id !== id)
+      
+      // Unset all other default profiles
+      for (const defaultProfile of otherDefaults) {
+        console.log(`Unsetting default for profile: ${defaultProfile.name} (${defaultProfile.id})`)
+        await pb.collection(profilesCollection).update(defaultProfile.id!, { is_default: false })
       }
     }
     
+    console.log(`Setting profile ${id} as default: ${data.is_default}`)
     const record = await pb.collection(profilesCollection).update(id, data)
     return record as unknown as Profile
   } catch (error: unknown) {
@@ -987,9 +1009,23 @@ export async function getDefaultProfile(): Promise<Profile | null> {
   
   try {
     const records = await pb.collection(profilesCollection).getFullList({
-      filter: `user = "${userId}" && is_default = true`,
-      limit: 1
+      filter: `user = "${userId}" && is_default = true`
     })
+    
+    // If multiple defaults found, fix it by keeping only the first one
+    if (records.length > 1) {
+      console.warn(`Found ${records.length} default profiles, fixing...`)
+      const profileToKeep = records[0]
+      
+      // Unset all others
+      for (let i = 1; i < records.length; i++) {
+        await pb.collection(profilesCollection).update(records[i].id, { is_default: false })
+        console.log(`Removed default status from profile: ${records[i].name}`)
+      }
+      
+      return profileToKeep as unknown as Profile
+    }
+    
     return records.length > 0 ? records[0] as unknown as Profile : null
   } catch (error: unknown) {
     if (isAutoCancelled(error)) {

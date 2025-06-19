@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronsUpDown, Plus, Briefcase, GraduationCap, Home, User, Trash2, MoreHorizontal } from "lucide-react"
+import { Check, ChevronsUpDown, Plus, Briefcase, GraduationCap, Home, User, Trash2, MoreHorizontal, Star } from "lucide-react"
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { cn } from "@/lib/utils"
@@ -47,7 +47,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Profile } from '@/lib/pocketbase'
-import { getProfiles, createProfile, deleteProfile, getNotesByProfile } from '@/lib/notes-api'
+import { getProfiles, createProfile, deleteProfile, getNotesByProfile, updateProfile } from '@/lib/notes-api'
 import { pb } from '@/lib/pocketbase'
 
 interface ProfileSelectorProps {
@@ -226,6 +226,23 @@ export function ProfileSelector({ selectedProfile, onSelectProfile, isAuthentica
     }
   })
 
+  // Set default profile mutation
+  const setDefaultProfileMutation = useMutation({
+    mutationFn: async (profileId: string) => {
+      return await updateProfile(profileId, { is_default: true })
+    },
+    onSuccess: (updatedProfile) => {
+      // Just invalidate the cache to refetch fresh data from server
+      // The server already handles unsetting other defaults correctly
+      queryClient.invalidateQueries({ queryKey: ['profiles'] })
+      
+      console.log(`Profile "${updatedProfile.name}" is now the default profile.`)
+    },
+    onError: (error: unknown) => {
+      console.error('Error setting default profile:', error)
+    }
+  })
+
   // Get icon component for a profile
   const getIconComponent = (iconName: string) => {
     const iconData = PROFILE_ICONS.find(icon => icon.value === iconName)
@@ -281,6 +298,14 @@ export function ProfileSelector({ selectedProfile, onSelectProfile, isAuthentica
       return
     }
     deleteProfileMutation.mutate(profileToDelete.id)
+  }
+
+  // Handle set as default
+  const handleSetAsDefault = (profile: Profile) => {
+    if (!profile.id || setDefaultProfileMutation.isPending || profile.is_default) {
+      return
+    }
+    setDefaultProfileMutation.mutate(profile.id)
   }
 
   // Don't render if not authenticated
@@ -381,19 +406,33 @@ export function ProfileSelector({ selectedProfile, onSelectProfile, isAuthentica
                                   <MoreHorizontal className="h-3 w-3" />
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="bg-sidebar border-sidebar-border">
-                                <DropdownMenuItem
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setOpen(false)
-                                    handleDeleteProfile(profile)
-                                  }}
-                                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete Profile
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
+                                                             <DropdownMenuContent align="end" className="bg-sidebar border-sidebar-border">
+                                 {!profile.is_default && (
+                                   <DropdownMenuItem
+                                     onClick={(e) => {
+                                       e.stopPropagation()
+                                       setOpen(false)
+                                       handleSetAsDefault(profile)
+                                     }}
+                                     className="text-sidebar-foreground hover:bg-sidebar-accent/50"
+                                     disabled={setDefaultProfileMutation.isPending}
+                                   >
+                                     <Star className="h-4 w-4 mr-2" />
+                                     Set as Default
+                                   </DropdownMenuItem>
+                                 )}
+                                 <DropdownMenuItem
+                                   onClick={(e) => {
+                                     e.stopPropagation()
+                                     setOpen(false)
+                                     handleDeleteProfile(profile)
+                                   }}
+                                   className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                 >
+                                   <Trash2 className="h-4 w-4 mr-2" />
+                                   Delete Profile
+                                 </DropdownMenuItem>
+                               </DropdownMenuContent>
                             </DropdownMenu>
                           )}
                         </div>
