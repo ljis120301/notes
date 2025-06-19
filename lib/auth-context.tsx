@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             id: record.id,
             email: record.email,
             name: record.name,
-            avatar: record.avatar
+            avatar: (record as { avatar?: string }).avatar
           }
           
           setUser(userData)
@@ -278,7 +278,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           id: record.id,
           email: record.email,
           name: record.name,
-          avatar: record.avatar
+          avatar: (record as { avatar?: string }).avatar
         })
         console.log('✅ Auth refresh successful')
       }

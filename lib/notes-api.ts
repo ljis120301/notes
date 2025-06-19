@@ -1140,4 +1140,182 @@ export async function createNoteInProfile(title: string, content: string = '', p
     console.error('notes-api createNoteInProfile failed:', error)
     throw error
   }
-} 
+}
+
+// ==================== USER PROFILE MANAGEMENT ====================
+
+export interface UserProfile {
+  id: string
+  email: string
+  name?: string
+  avatar?: string
+  created: string
+  updated: string
+}
+
+/**
+ * Get current user profile
+ */
+export async function getUserProfile(): Promise<UserProfile | null> {
+  try {
+    if (!pb.authStore.isValid || !pb.authStore.model?.id) {
+      return null
+    }
+
+    const userId = pb.authStore.model.id
+    const user = await pb.collection('users').getOne(userId)
+    
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatar: user.avatar,
+      created: user.created,
+      updated: user.updated
+    }
+  } catch (error: unknown) {
+    if (isAutoCancelled(error)) {
+      console.log('Get user profile request was auto-cancelled')
+      throw new Error('Request cancelled')
+    }
+    console.error('Failed to get user profile:', error)
+    return null
+  }
+}
+
+/**
+ * Update user profile (name, etc. - not avatar)
+ */
+export async function updateUserProfile(data: { 
+  name?: string 
+}): Promise<UserProfile> {
+  const userId = ensureAuth()
+  
+  try {
+    const updateData: Record<string, unknown> = {}
+    if (data.name !== undefined) updateData.name = data.name.trim()
+    
+    const updatedUser = await pb.collection('users').update(userId, updateData)
+    
+    return {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      name: updatedUser.name,
+      avatar: updatedUser.avatar,
+      created: updatedUser.created,
+      updated: updatedUser.updated
+    }
+  } catch (error: unknown) {
+    if (isAutoCancelled(error)) {
+      console.log('Update user profile request was auto-cancelled')
+      throw new Error('Request cancelled')
+    }
+    
+    const err = error as { status?: number; message?: string; data?: Record<string, unknown> }
+    
+    // Handle specific PocketBase validation errors
+    if (err.status === 400 && err.data) {
+      if (err.data.name) {
+        throw new Error('Invalid name provided')
+      }
+    }
+    
+    throw error
+  }
+}
+
+/**
+ * Upload avatar for current user
+ */
+export async function uploadAvatar(file: File): Promise<UserProfile> {
+  const userId = ensureAuth()
+  
+  try {
+    // Validate file
+    const maxSize = 5 * 1024 * 1024 // 5MB
+    if (file.size > maxSize) {
+      throw new Error('Avatar file size must be less than 5MB')
+    }
+    
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error('Avatar must be a JPEG, PNG, or WebP image')
+    }
+    
+    const formData = new FormData()
+    formData.append('avatar', file)
+    
+    const updatedUser = await pb.collection('users').update(userId, formData)
+    
+    return {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      name: updatedUser.name,
+      avatar: updatedUser.avatar,
+      created: updatedUser.created,
+      updated: updatedUser.updated
+    }
+  } catch (error: unknown) {
+    if (isAutoCancelled(error)) {
+      console.log('Upload avatar request was auto-cancelled')
+      throw new Error('Upload cancelled')
+    }
+    
+    const err = error as { status?: number; message?: string }
+    if (err.status === 413) {
+      throw new Error('Avatar file is too large. Maximum size is 5MB.')
+    }
+    
+    console.error('Failed to upload avatar:', error)
+    throw new Error('Failed to upload avatar. Please try again.')
+  }
+}
+
+/**
+ * Remove avatar for current user
+ */
+export async function removeAvatar(): Promise<UserProfile> {
+  const userId = ensureAuth()
+  
+  try {
+    const updatedUser = await pb.collection('users').update(userId, {
+      avatar: null
+    })
+    
+    return {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      name: updatedUser.name,
+      avatar: updatedUser.avatar,
+      created: updatedUser.created,
+      updated: updatedUser.updated
+    }
+  } catch (error: unknown) {
+    if (isAutoCancelled(error)) {
+      console.log('Remove avatar request was auto-cancelled')
+      throw new Error('Request cancelled')
+    }
+    console.error('Failed to remove avatar:', error)
+    throw new Error('Failed to remove avatar. Please try again.')
+  }
+}
+
+/**
+ * Get avatar URL for a user
+ */
+export function getAvatarUrl(user: UserProfile | null): string | null {
+  if (!user || !user.avatar) {
+    return null
+  }
+  
+  try {
+    return pb.files.getUrl({ 
+      id: user.id,
+      collectionId: '_pb_users_auth_',
+      collectionName: 'users'
+    } as Record<string, unknown>, user.avatar)
+  } catch (error) {
+    console.warn('Failed to generate avatar URL:', error)
+    return null
+  }
+}

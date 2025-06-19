@@ -16,6 +16,7 @@ import { ShareNoteDialog } from './share-note-dialog'
 import NotesEditorWrapper from './notes-editor-wrapper'
 import { TemplateGallery } from './template-gallery'
 import { ProfileProvider } from '@/lib/profile-context'
+import { UserAvatar } from './user-avatar'
 
 export function NotesApp() {
   const { user, logout } = useAuth()
@@ -204,10 +205,13 @@ export function NotesApp() {
           />
         }
         userActions={
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-muted-foreground">
-              {user?.email || 'User'}
-            </span>
+          <div className="flex items-center space-x-3">
+            <UserAvatar size="md" clickable={true} className="cursor-pointer" />
+            <div className="hidden sm:block">
+              <span className="text-sm text-muted-foreground">
+                {user?.name || user?.email || 'User'}
+              </span>
+            </div>
             <Button variant="ghost" size="sm" onClick={logout}>
               <LogOut className="h-4 w-4" />
             </Button>
