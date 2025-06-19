@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronsUpDown, Plus, Briefcase, GraduationCap, Home, User } from "lucide-react"
+import { Check, ChevronsUpDown, Plus, Briefcase, GraduationCap, Home, User, Trash2, MoreHorizontal } from "lucide-react"
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { cn } from "@/lib/utils"
@@ -27,11 +27,27 @@ import {
   DialogHeader, 
   DialogTitle 
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Profile } from '@/lib/pocketbase'
-import { getProfiles, createProfile } from '@/lib/notes-api'
+import { getProfiles, createProfile, deleteProfile, getNotesByProfile } from '@/lib/notes-api'
 import { pb } from '@/lib/pocketbase'
 
 interface ProfileSelectorProps {
@@ -114,6 +130,11 @@ export function ProfileSelector({ selectedProfile, onSelectProfile, isAuthentica
   const [newProfileDescription, setNewProfileDescription] = React.useState("")
   const [newProfileIcon, setNewProfileIcon] = React.useState("user")
   const [newProfileColor, setNewProfileColor] = React.useState("#3b82f6")
+  
+  // Delete profile state
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
+  const [profileToDelete, setProfileToDelete] = React.useState<Profile | null>(null)
+  const [notesCount, setNotesCount] = React.useState(0)
 
   // Get current user ID for access tracking
   const userId = pb.authStore.model?.id || 'anonymous'
@@ -165,6 +186,46 @@ export function ProfileSelector({ selectedProfile, onSelectProfile, isAuthentica
     }
   })
 
+  // Delete profile mutation
+  const deleteProfileMutation = useMutation({
+    mutationFn: deleteProfile,
+    onSuccess: (result) => {
+      // Update profiles cache
+      queryClient.setQueryData(['profiles'], (oldProfiles: Profile[] = []) => {
+        return oldProfiles.filter(p => p.id !== profileToDelete?.id)
+      })
+      
+      // Invalidate all profile-related queries
+      queryClient.invalidateQueries({ queryKey: ['profiles'] })
+      queryClient.invalidateQueries({ queryKey: ['notes-by-profile'] })
+      
+      // If the deleted profile was selected, switch to another profile
+      if (selectedProfile?.id === profileToDelete?.id) {
+        const remainingProfiles = profiles.filter(p => p.id !== profileToDelete?.id)
+        const fallbackProfile = remainingProfiles.find(p => p.is_default) || remainingProfiles[0] || null
+        onSelectProfile(fallbackProfile)
+        
+        // Update access time for fallback profile
+        if (fallbackProfile) {
+          updateProfileLastAccessed(fallbackProfile.id!, userId)
+        }
+      }
+      
+      // Reset state and close dialog
+      setDeleteDialogOpen(false)
+      setProfileToDelete(null)
+      setNotesCount(0)
+      
+      console.log(`Profile deleted successfully. ${result.deletedNotesCount} notes were also deleted.`)
+    },
+    onError: (error: unknown) => {
+      console.error('Error deleting profile:', error)
+      setDeleteDialogOpen(false)
+      setProfileToDelete(null)
+      setNotesCount(0)
+    }
+  })
+
   // Get icon component for a profile
   const getIconComponent = (iconName: string) => {
     const iconData = PROFILE_ICONS.find(icon => icon.value === iconName)
@@ -196,6 +257,30 @@ export function ProfileSelector({ selectedProfile, onSelectProfile, isAuthentica
     }
     
     setOpen(false)
+  }
+
+  // Handle delete profile initiation
+  const handleDeleteProfile = async (profile: Profile) => {
+    try {
+      // Get notes count for this profile
+      const notes = await getNotesByProfile(profile.id!)
+      setNotesCount(notes.length)
+      setProfileToDelete(profile)
+      setDeleteDialogOpen(true)
+    } catch (error) {
+      console.error('Error getting notes count:', error)
+      setNotesCount(0)
+      setProfileToDelete(profile)
+      setDeleteDialogOpen(true)
+    }
+  }
+
+  // Handle delete confirmation
+  const handleConfirmDelete = () => {
+    if (!profileToDelete?.id || deleteProfileMutation.isPending) {
+      return
+    }
+    deleteProfileMutation.mutate(profileToDelete.id)
   }
 
   // Don't render if not authenticated
@@ -256,12 +341,13 @@ export function ProfileSelector({ selectedProfile, onSelectProfile, isAuthentica
                 <CommandGroup>
                   {profiles.map((profile) => {
                     const IconComponent = getIconComponent(profile.icon || 'user')
+                    const canDelete = profiles.length > 1 // Can only delete if there's more than one profile
                     return (
                       <CommandItem
                         key={profile.id}
                         value={profile.name}
                         onSelect={() => handleProfileSelect(profile)}
-                        className="text-sidebar-foreground hover:bg-sidebar-accent/50"
+                        className="text-sidebar-foreground hover:bg-sidebar-accent/50 flex justify-between items-center"
                       >
                         <div className="flex items-center space-x-2 flex-1 min-w-0">
                           <div
@@ -274,12 +360,43 @@ export function ProfileSelector({ selectedProfile, onSelectProfile, isAuthentica
                             <span className="text-xs text-sidebar-foreground/50">(default)</span>
                           )}
                         </div>
-                        <Check
-                          className={cn(
-                            "ml-auto h-4 w-4",
-                            selectedProfile?.id === profile.id ? "opacity-100" : "opacity-0"
+                        <div className="flex items-center space-x-1">
+                          <Check
+                            className={cn(
+                              "h-4 w-4",
+                              selectedProfile?.id === profile.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {canDelete && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 hover:bg-sidebar-accent"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                  }}
+                                >
+                                  <MoreHorizontal className="h-3 w-3" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="bg-sidebar border-sidebar-border">
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setOpen(false)
+                                    handleDeleteProfile(profile)
+                                  }}
+                                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete Profile
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           )}
-                        />
+                        </div>
                       </CommandItem>
                     )
                   })}
@@ -406,6 +523,43 @@ export function ProfileSelector({ selectedProfile, onSelectProfile, isAuthentica
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Profile Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="bg-sidebar border-sidebar-border text-sidebar-foreground">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-sidebar-foreground">Delete Profile</AlertDialogTitle>
+            <AlertDialogDescription className="text-sidebar-foreground/70">
+              Are you sure you want to delete the profile &quot;{profileToDelete?.name}&quot;?
+              <br /><br />
+              <span className="font-semibold text-destructive">
+                This will permanently delete the profile and all {notesCount} note{notesCount !== 1 ? 's' : ''} associated with it.
+              </span>
+              <br /><br />
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              className="border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent/50"
+              onClick={() => {
+                setDeleteDialogOpen(false)
+                setProfileToDelete(null)
+                setNotesCount(0)
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={deleteProfileMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteProfileMutation.isPending ? 'Deleting...' : `Delete Profile & ${notesCount} Note${notesCount !== 1 ? 's' : ''}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 } 
