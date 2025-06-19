@@ -18,11 +18,42 @@
 .ProseMirror table th > * {
   margin-bottom: 0;
 }
+
+/* Default table headers with better styling */
 .ProseMirror table th {
-  font-weight: bold;
+  font-weight: 600;
   text-align: left;
-  background-color: #f1f3f5;
+  background-color: #f8fafc;
+  color: #1e293b;
+  border-bottom: 2px solid #e2e8f0;
 }
+
+/* Frappe theme table headers - softer, warmer colors */
+[data-theme="frappe"] .ProseMirror table th {
+  background-color: #f4f1f8;
+  color: #2d2a3a;
+  border-bottom: 2px solid #d4c9df;
+}
+
+/* Dark mode table headers - more sophisticated dark styling */
+.dark .ProseMirror table th {
+  background-color: #1e293b;
+  color: #f1f5f9;
+  border-bottom: 2px solid #334155;
+}
+
+/* Dark mode border adjustments */
+.dark .ProseMirror table td,
+.dark .ProseMirror table th {
+  border: 1px solid #475569;
+}
+
+/* Frappe theme border adjustments */
+[data-theme="frappe"] .ProseMirror table td,
+[data-theme="frappe"] .ProseMirror table th {
+  border: 1px solid #c9b9d1;
+}
+
 .ProseMirror .column-resize-handle {
   position: absolute;
   right: -2px;
@@ -45,4 +76,90 @@
   bottom: 0;
   background: rgba(200, 200, 255, 0.4);
   pointer-events: none;
+}
+
+/* Table node selection styles - improved for better visibility */
+.ProseMirror table.ProseMirror-selectednode {
+  outline: 3px solid #3b82f6;
+  outline-offset: 4px;
+  position: relative;
+  border-radius: 4px;
+}
+
+/* Selection hint - positioned better and less intrusive */
+.ProseMirror table.ProseMirror-selectednode::after {
+  content: "Press Delete or Backspace to remove table";
+  position: absolute;
+  top: -35px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #3b82f6;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Arrow pointing to table */
+.ProseMirror table.ProseMirror-selectednode::before {
+  content: "";
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid #3b82f6;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+/* Dark mode support for table selection */
+.dark .ProseMirror table.ProseMirror-selectednode {
+  outline-color: #60a5fa;
+}
+
+.dark .ProseMirror table.ProseMirror-selectednode::after {
+  background: #60a5fa;
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.dark .ProseMirror table.ProseMirror-selectednode::before {
+  border-top-color: #60a5fa;
+}
+
+/* Frappe theme support for table selection */
+[data-theme="frappe"] .ProseMirror table.ProseMirror-selectednode {
+  outline-color: #8b5cf6;
+}
+
+[data-theme="frappe"] .ProseMirror table.ProseMirror-selectednode::after {
+  background: #8b5cf6;
+  color: white;
+}
+
+[data-theme="frappe"] .ProseMirror table.ProseMirror-selectednode::before {
+  border-top-color: #8b5cf6;
+}
+
+/* Context menu integration - highlight table on right-click */
+.ProseMirror table:hover {
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3);
+  transition: box-shadow 0.2s ease;
+}
+
+.dark .ProseMirror table:hover {
+  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.3);
+}
+
+[data-theme="frappe"] .ProseMirror table:hover {
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.3);
 } 

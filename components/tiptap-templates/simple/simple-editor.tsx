@@ -27,6 +27,7 @@ import { Link } from "@/components/tiptap-extension/link-extension"
 import { Selection } from "@/components/tiptap-extension/selection-extension"
 import { TrailingNode } from "@/components/tiptap-extension/trailing-node-extension"
 import { DocumentConverterExtension } from "@/components/tiptap-extension/document-converter-extension"
+import { TableManagementExtension } from "@/components/tiptap-extension/table-management-extension"
 
 // --- UI Primitives ---
 import { Button } from "@/components/tiptap-ui-primitive/button"
@@ -67,6 +68,9 @@ import { MarkButton } from "@/components/tiptap-ui/mark-button"
 import { TextAlignButton } from "@/components/tiptap-ui/text-align-button"
 import { UndoRedoButton } from "@/components/tiptap-ui/undo-redo-button"
 import { TemplateButton } from "@/components/tiptap-ui/template-button"
+
+// --- Table Context Menu ---
+import { TableContextMenu } from "@/components/tiptap-ui/table-context-menu"
 
 // --- Icons ---
 import { ArrowLeftIcon } from "@/components/tiptap-icons/arrow-left-icon"
@@ -401,6 +405,7 @@ export const SimpleEditor = React.memo(React.forwardRef<SimpleEditorRef, SimpleE
     }),
     Table.configure({
       resizable: true,
+      allowTableNodeSelection: true, // Enable table node selection for deletion
     }),
     TableRow,
     TableHeader,
@@ -452,6 +457,9 @@ export const SimpleEditor = React.memo(React.forwardRef<SimpleEditorRef, SimpleE
     DocumentConverterExtension.configure({
       // Let the UI component handle all toast notifications
       // to avoid duplicate toasts and stuck loading states
+    }),
+    TableManagementExtension.configure({
+      showHints: true,
     }),
   ], [])
 
@@ -868,11 +876,13 @@ export const SimpleEditor = React.memo(React.forwardRef<SimpleEditorRef, SimpleE
               <StaticMainToolbarContent />
             </Toolbar>
             <div className="content-wrapper">
-              <EditorContent
-                editor={editor}
-                role="presentation"
-                className="simple-editor-content"
-              />
+              <TableContextMenu>
+                <EditorContent
+                  editor={editor}
+                  role="presentation"
+                  className="simple-editor-content"
+                />
+              </TableContextMenu>
             </div>
           </>
         ) : (
@@ -886,11 +896,13 @@ export const SimpleEditor = React.memo(React.forwardRef<SimpleEditorRef, SimpleE
               <StaticMainToolbarContent />
             </Toolbar>
             <div className="content-wrapper">
-              <EditorContent
-                editor={editor}
-                role="presentation"
-                className="simple-editor-content"
-              />
+              <TableContextMenu>
+                <EditorContent
+                  editor={editor}
+                  role="presentation"
+                  className="simple-editor-content"
+                />
+              </TableContextMenu>
             </div>
           </>
         )}
