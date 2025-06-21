@@ -881,7 +881,6 @@ export async function getProfiles(): Promise<Profile[]> {
       console.warn(`Found ${defaultProfiles.length} default profiles, fixing...`)
       
       // Keep the first one as default, unset the rest
-      const profileToKeep = defaultProfiles[0]
       for (let i = 1; i < defaultProfiles.length; i++) {
         await pb.collection(profilesCollection).update(defaultProfiles[i].id!, { is_default: false })
         console.log(`Removed default status from profile: ${defaultProfiles[i].name}`)
