@@ -25,6 +25,7 @@ const DEFAULT_PROFILES = [
 
 /**
  * Auto-setup default profiles for new users if they don't have any profiles yet
+ * This function is more conservative and only runs for truly new users
  */
 export async function autoSetupProfilesIfNeeded(): Promise<void> {
   if (!pb.authStore.isValid || !pb.authStore.model?.id) {
@@ -35,8 +36,10 @@ export async function autoSetupProfilesIfNeeded(): Promise<void> {
     // Check if user already has profiles
     const existingProfiles = await getProfiles()
     
+    // Only create default profiles if user has absolutely no profiles
+    // This prevents recreating profiles for existing users who might have temporary database issues
     if (existingProfiles.length === 0) {
-      console.log('[autoSetupProfilesIfNeeded] No profiles found, creating default profiles...')
+      console.log('[autoSetupProfilesIfNeeded] No profiles found for new user, creating default profiles...')
       
       // Create default profiles
       for (const profileData of DEFAULT_PROFILES) {

@@ -204,15 +204,27 @@ services:
           echo "✓ PocketBase binary found at /app/pocketbase/pocketbase"
           echo "PocketBase version: $(./pocketbase/pocketbase --version 2>/dev/null || echo 'Unable to determine version')"
         else
-          echo "ERROR: PocketBase binary not found at /app/pocketbase/pocketbase"
-          echo "Current directory contents:"
-          ls -la /app/
-          if [ -d /app/pocketbase ]; then
-            echo "Contents of /app/pocketbase:"
-            ls -la /app/pocketbase/
+          echo "⚠️  PocketBase binary not found in repository, checking mounted volume..."
+          
+          if [ -f /pocketbase/pocketbase ]; then
+            echo "✓ PocketBase binary found in mounted volume at /pocketbase/pocketbase"
+            echo "PocketBase version: $(/pocketbase/pocketbase --version 2>/dev/null || echo 'Unable to determine version')"
+            
+            # Create symlink to make it available at expected location
+            mkdir -p /app/pocketbase
+            ln -sf /pocketbase/pocketbase /app/pocketbase/pocketbase
+            echo "✓ Created symlink from /pocketbase/pocketbase to /app/pocketbase/pocketbase"
+          else
+            echo "ERROR: PocketBase binary not found in repository or mounted volume"
+            echo "Current directory contents:"
+            ls -la /app/
+            if [ -d /pocketbase ]; then
+              echo "Contents of /pocketbase:"
+              ls -la /pocketbase/
+            fi
+            echo "Please ensure the PocketBase binary is available in the mounted volume at /pocketbase/pocketbase"
+            exit 1
           fi
-          echo "Please ensure the PocketBase binary is located in the GitHub repository at pocketbase/pocketbase"
-          exit 1
         fi
 
         echo ""
@@ -234,7 +246,8 @@ services:
         published: "6969"
         protocol: tcp
     restart: unless-stopped
-    volumes: []
+    volumes:
+      - /home/jason/pocketbase-notes/pocketbase:/pocketbase
     working_dir: /app
     x-casaos:
       architectures:
@@ -255,7 +268,7 @@ services:
         en_us: PocketBase - Backend Database
       tips:
         en_us: PocketBase admin interface is available at http://your-server-ip:6969/_/.
-          Database files are persisted to /home/jason/pocketbase on the host
+          Database files are persisted to /home/jason/pocketbase-notes/pocketbase on the host
           system.
     devices: []
     cap_add: []
