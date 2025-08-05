@@ -820,6 +820,8 @@ export async function toggleFolderExpanded(id: string, expanded: boolean): Promi
 export async function createProfile(name: string, description?: string, color?: string, icon?: string): Promise<Profile> {
   const userId = ensureAuth()
   
+  console.log(`[createProfile] Creating profile "${name}" for user ${userId}`)
+  
   try {
     const record = await pb.collection(profilesCollection).create({
       name,
@@ -829,6 +831,8 @@ export async function createProfile(name: string, description?: string, color?: 
       user: userId,
       is_default: false
     })
+    
+    console.log(`[createProfile] Successfully created profile "${name}" with ID ${record.id}`)
     return record as unknown as Profile
   } catch (error: unknown) {
     if (isAutoCancelled(error)) {
@@ -867,11 +871,15 @@ export async function createDefaultProfile(): Promise<Profile> {
 export async function getProfiles(): Promise<Profile[]> {
   const userId = ensureAuth()
   
+  console.log(`[getProfiles] Fetching profiles for user ${userId}`)
+  
   try {
     const records = await pb.collection(profilesCollection).getFullList({
       sort: 'created',
       filter: `user = "${userId}"`
     })
+    
+    console.log(`[getProfiles] Found ${records.length} profiles for user ${userId}`)
     
     const profiles = records as unknown as Profile[]
     
@@ -882,6 +890,8 @@ export async function getProfiles(): Promise<Profile[]> {
       
       // Keep the first one as default, unset the rest
       const profileToKeep = defaultProfiles[0]
+      console.log(`Keeping profile "${profileToKeep.name}" as default`)
+      
       for (let i = 1; i < defaultProfiles.length; i++) {
         await pb.collection(profilesCollection).update(defaultProfiles[i].id!, { is_default: false })
         console.log(`Removed default status from profile: ${defaultProfiles[i].name}`)
