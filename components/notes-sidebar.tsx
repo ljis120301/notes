@@ -995,16 +995,12 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
         }
       })
       
-      // Sort notes within each folder and standalone notes
-      const sortedStandaloneNotes = originalNotesOrder.length > 0 
-        ? smartSortNotes(standaloneNotes, originalNotesOrder)
-        : sortNotes(standaloneNotes)
+      // Sort notes within each folder and standalone notes by recency (and pinned)
+      const sortedStandaloneNotes = sortNotes(standaloneNotes)
       
       // Sort notes within folders
       notesInFolders.forEach((folderNotes, folderId) => {
-        const sortedFolderNotes = originalNotesOrder.length > 0 
-          ? smartSortNotes(folderNotes, originalNotesOrder)
-          : sortNotes(folderNotes)
+        const sortedFolderNotes = sortNotes(folderNotes)
         notesInFolders.set(folderId, sortedFolderNotes)
       })
       

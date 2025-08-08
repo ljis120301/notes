@@ -138,10 +138,20 @@ export function useSimpleRealtimeSync(): SimpleRealtimeSyncResult {
 
             // Update profile-specific cache so sidebars refresh
             const profileKey = normalizedNote.profile_id || 'no-profile'
-            // Ensure note exists in that list
+            // Ensure note exists in that list and adjust ordering by updated time
             queryClient.setQueryData(['notes-by-profile', profileKey], (oldNotes: Note[] = []) => {
-              const others = oldNotes.filter(n => n.id !== record.id)
-              return [normalizedNote, ...others]
+              const others = (oldNotes || []).filter(n => n.id !== record.id)
+              const next = [normalizedNote, ...others]
+              // Sort pinned first, then by updated desc to keep responsive organization
+              return next.sort((a, b) => {
+                const aPinned = !!a.pinned
+                const bPinned = !!b.pinned
+                if (aPinned && !bPinned) return -1
+                if (!aPinned && bPinned) return 1
+                const at = a.updated ? new Date(a.updated).getTime() : 0
+                const bt = b.updated ? new Date(b.updated).getTime() : 0
+                return bt - at
+              })
             })
             queryClient.invalidateQueries({ queryKey: ['notes-by-profile', profileKey], exact: true, refetchType: 'none' })
 
@@ -151,7 +161,16 @@ export function useSimpleRealtimeSync(): SimpleRealtimeSyncResult {
               if (idx === -1) return oldNotes // note not in list of another profile
               const newArr = [...oldNotes]
               newArr[idx] = normalizedNote
-              return newArr
+              // Keep ordering consistent after update
+              return newArr.sort((a, b) => {
+                const aPinned = !!a.pinned
+                const bPinned = !!b.pinned
+                if (aPinned && !bPinned) return -1
+                if (!aPinned && bPinned) return 1
+                const at = a.updated ? new Date(a.updated).getTime() : 0
+                const bt = b.updated ? new Date(b.updated).getTime() : 0
+                return bt - at
+              })
             })
             queryClient.invalidateQueries({ queryKey: ['notes-by-profile', profileKeyUpd], exact: true, refetchType: 'none' })
           } else if (action === 'delete') {

@@ -78,6 +78,26 @@ export function NotesApp() {
     queryClient.setQueryData(['notes'], (oldNotes: Note[] = []) =>
       oldNotes.map(n => n.id === updatedNote.id ? updatedNote : n)
     )
+    // Update profile-scoped list so sidebars reflect latest preview and ordering
+    const profileKey = (updatedNote as any).profile_id || 'no-profile'
+    queryClient.setQueryData(['notes-by-profile', profileKey], (oldNotes: Note[] = []) => {
+      if (!Array.isArray(oldNotes)) return oldNotes as any
+      const exists = oldNotes.some(n => n.id === updatedNote.id)
+      if (!exists) {
+        return [updatedNote, ...oldNotes]
+      }
+      const next = oldNotes.map(n => (n.id === updatedNote.id ? { ...n, ...updatedNote } : n))
+      // Sort pinned first, then by updated desc
+      return next.sort((a, b) => {
+        const aPinned = !!a.pinned
+        const bPinned = !!b.pinned
+        if (aPinned && !bPinned) return -1
+        if (!aPinned && bPinned) return 1
+        const at = a.updated ? new Date(a.updated).getTime() : 0
+        const bt = b.updated ? new Date(b.updated).getTime() : 0
+        return bt - at
+      })
+    })
     
     // Refresh sidebar to show updated timestamps and any other changes
     sidebarRef.current?.refreshNotes()
@@ -102,6 +122,15 @@ export function NotesApp() {
       queryClient.setQueryData(['notes'], (oldNotes: Note[] = []) =>
         oldNotes.map(n => n.id === selectedNoteId ? { ...n, title } : n)
       )
+      // And update in profile-scoped list
+      // We don't know the profile id here without fetching; use existing cached item when available
+      const keys = queryClient.getQueryCache().getAll().map(q => q.queryKey)
+      const profileKeys = keys.filter(k => Array.isArray(k) && k[0] === 'notes-by-profile') as any[]
+      profileKeys.forEach((key) => {
+        queryClient.setQueryData(key as any, (oldNotes: Note[] = []) =>
+          oldNotes.map(n => n.id === selectedNoteId ? { ...n, title } : n)
+        )
+      })
     }
   }, [selectedNoteId, queryClient])
 

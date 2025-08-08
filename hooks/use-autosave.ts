@@ -247,11 +247,40 @@ export function useAutosave(
       updateStatus({ status: 'saving' })
     },
     onSuccess: (updatedNote) => {
-      // Update React Query cache optimistically
-      queryClient.setQueryData(['note', updatedNote.id], updatedNote)
-      queryClient.setQueryData(['notes'], (oldNotes: Note[] = []) =>
-        oldNotes.map(n => n.id === updatedNote.id ? updatedNote : n)
-      )
+      // Update React Query cache but avoid churn if content is effectively unchanged
+      queryClient.setQueryData(['note', updatedNote.id], (oldNote: Note | undefined) => {
+        if (!oldNote) return updatedNote
+        const oldContent = oldNote.content ?? ''
+        const newContent = updatedNote.content ?? ''
+        if (oldContent === newContent) {
+          // Preserve old content to avoid triggering editor prop changes that reset caret
+          return { ...oldNote, ...updatedNote, content: oldContent }
+        }
+        return updatedNote
+      })
+      queryClient.setQueryData(['notes'], (oldNotes: Note[] = []) => {
+        return oldNotes.map(n => {
+          if (n.id !== updatedNote.id) return n
+          const oldContent = n.content ?? ''
+          const newContent = updatedNote.content ?? ''
+          if (oldContent === newContent) {
+            return { ...n, ...updatedNote, content: oldContent }
+          }
+          return updatedNote
+        })
+      })
+
+      // Also update profile-scoped lists so sidebars reflect latest preview and ordering immediately
+      const profileKey = (updatedNote as any).profile_id || 'no-profile'
+      queryClient.setQueryData(['notes-by-profile', profileKey], (oldNotes: Note[] = []) => {
+        if (!Array.isArray(oldNotes)) return oldNotes as any
+        const exists = oldNotes.some(n => n.id === updatedNote.id)
+        if (!exists) {
+          // If not present, prepend (new notes or cross-profile moves)
+          return [updatedNote, ...oldNotes]
+        }
+        return oldNotes.map(n => (n.id === updatedNote.id ? { ...n, ...updatedNote } : n))
+      })
 
       // Update internal state with proper synchronization
       lastSavedContentRef.current = { title: updatedNote.title || '', content: updatedNote.content || '' }

@@ -668,7 +668,8 @@ export const SimpleEditor = React.memo(React.forwardRef<SimpleEditorRef, SimpleE
     }
     
     // Same note but content changed (real-time update)
-    if (initialContent !== contentBufferRef.current) {
+    const canon = (html: string) => html.replace(/\s+/g, ' ').trim()
+    if (canon(initialContent) !== canon(contentBufferRef.current)) {
       const hasUnsavedChanges = contentBufferRef.current !== lastEmittedContentRef.current
       const isUserTyping = editor.isFocused
       
