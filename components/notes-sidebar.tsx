@@ -60,45 +60,7 @@ function getPreview(noteId: string | undefined, html: string | undefined): strin
 }
 
 // Smart sort function: Pinned notes first, then preserve original chronological order for unpinned notes
-function smartSortNotes(notes: Note[], originalOrder: Note[]): Note[] {
-  // Separate pinned and unpinned notes
-  const pinnedNotes = notes.filter(note => note.pinned)
-  const unpinnedNotes = notes.filter(note => !note.pinned)
-  
-  // Sort pinned notes by their pin time (most recently pinned first)
-  const sortedPinnedNotes = pinnedNotes.sort((a, b) => {
-    const aUpdated = a.updated ? new Date(a.updated).getTime() : 0
-    const bUpdated = b.updated ? new Date(b.updated).getTime() : 0
-    return bUpdated - aUpdated
-  })
-  
-  // For unpinned notes, try to preserve their original chronological order
-  // Create a map of original positions
-  const originalPositionMap = new Map(originalOrder.map((note, index) => [note.id, index]))
-  
-  // Sort unpinned notes by their original position, falling back to updated time for new notes
-  const sortedUnpinnedNotes = unpinnedNotes.sort((a, b) => {
-    const aOriginalPos = originalPositionMap.get(a.id)
-    const bOriginalPos = originalPositionMap.get(b.id)
-    
-    // If both notes have original positions, use those
-    if (aOriginalPos !== undefined && bOriginalPos !== undefined) {
-      return aOriginalPos - bOriginalPos
-    }
-    
-    // If only one has original position, prioritize the one without (it's newer)
-    if (aOriginalPos === undefined && bOriginalPos !== undefined) return -1
-    if (aOriginalPos !== undefined && bOriginalPos === undefined) return 1
-    
-    // If neither has original position, sort by updated time (newest first)
-    const aUpdated = a.updated ? new Date(a.updated).getTime() : 0
-    const bUpdated = b.updated ? new Date(b.updated).getTime() : 0
-    return bUpdated - aUpdated
-  })
-  
-  // Return pinned notes first, then unpinned notes in their original order
-  return [...sortedPinnedNotes, ...sortedUnpinnedNotes]
-}
+// Removed legacy smartSortNotes to avoid unused-vars; consistent sorting now uses sortNotes
 
 // Fallback sort function for when we don't have original order
 function sortNotes(notes: Note[]): Note[] {
@@ -1005,11 +967,11 @@ const NotesSidebarComponent = forwardRef<NotesSidebarRef, NotesSidebarProps>(
       })
       
       return {
-        folders: folders.sort((a, b) => a.name.localeCompare(b.name)),
+        folders: folders.slice().sort((a, b) => a.name.localeCompare(b.name)),
         standaloneNotes: sortedStandaloneNotes,
         notesInFolders
       }
-    }, [searchQuery, searchResults, notes, folders, originalNotesOrder])
+    }, [searchQuery, searchResults, notes, folders])
 
     // Reset edit mode when switching profiles to prevent stale state
     useEffect(() => {
