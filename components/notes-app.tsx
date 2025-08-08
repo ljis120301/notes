@@ -79,9 +79,8 @@ export function NotesApp() {
       oldNotes.map(n => n.id === updatedNote.id ? updatedNote : n)
     )
     // Update profile-scoped list so sidebars reflect latest preview and ordering
-    const profileKey = (updatedNote as any).profile_id || 'no-profile'
-    queryClient.setQueryData(['notes-by-profile', profileKey], (oldNotes: Note[] = []) => {
-      if (!Array.isArray(oldNotes)) return oldNotes as any
+    const profileKey = updatedNote.profile_id || 'no-profile'
+    queryClient.setQueryData<Note[]>(['notes-by-profile', profileKey], (oldNotes: Note[] = []) => {
       const exists = oldNotes.some(n => n.id === updatedNote.id)
       if (!exists) {
         return [updatedNote, ...oldNotes]
@@ -125,9 +124,11 @@ export function NotesApp() {
       // And update in profile-scoped list
       // We don't know the profile id here without fetching; use existing cached item when available
       const keys = queryClient.getQueryCache().getAll().map(q => q.queryKey)
-      const profileKeys = keys.filter(k => Array.isArray(k) && k[0] === 'notes-by-profile') as any[]
+      const profileKeys = keys.filter((k): k is [string, string] =>
+        Array.isArray(k) && k.length >= 2 && k[0] === 'notes-by-profile' && typeof k[1] === 'string'
+      )
       profileKeys.forEach((key) => {
-        queryClient.setQueryData(key as any, (oldNotes: Note[] = []) =>
+        queryClient.setQueryData<Note[]>(key, (oldNotes: Note[] = []) =>
           oldNotes.map(n => n.id === selectedNoteId ? { ...n, title } : n)
         )
       })
