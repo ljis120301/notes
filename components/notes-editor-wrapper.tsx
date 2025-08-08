@@ -69,6 +69,7 @@ const NotesEditorWrapper = ({
   const [saveAsTemplateOpen, setSaveAsTemplateOpen] = useState(false)
   const { onOpen } = useShareNote()
   const editorRef = useRef<SimpleEditorRef>(null)
+  const titleInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isExporting, setIsExporting] = useState(false)
 
@@ -209,20 +210,17 @@ const NotesEditorWrapper = ({
 
   // Create combined sync status that merges autosave + real-time
   const combinedSyncStatus = useMemo(() => {
-    // Get the overall status priority: saving > conflicts > error > synced
+    // Compute overall sync status compliant with IntegratedSyncResult
+    // saving > conflicts/error > offline > synced
     let overallStatus: 'synced' | 'saving' | 'conflicts' | 'error' | 'offline' = 'synced'
-    
-    // Check autosave status first (higher priority)
-    if (autosaveResult.status.status === 'saving') {
-      overallStatus = 'saving'
-    } else if (autosaveResult.status.status === 'error') {
-      overallStatus = 'error'
-    } else if (autosaveResult.status.status === 'offline') {
-      overallStatus = 'offline'
-    } else if (autosaveResult.hasUnsavedChanges) {
-      // Still synced overall, just has unsaved changes
-      overallStatus = 'synced'
-    }
+
+    const isSaving = autosaveResult.status.status === 'saving' || autosaveResult.hasUnsavedChanges
+    const isError = autosaveResult.status.status === 'error'
+    const isOffline = autosaveResult.status.status === 'offline'
+
+    if (isSaving) overallStatus = 'saving'
+    else if (isError) overallStatus = 'error'
+    else if (isOffline) overallStatus = 'offline'
 
     return {
       // Create a compatible interface with IntegratedSyncResult
@@ -277,14 +275,47 @@ const NotesEditorWrapper = ({
     }
   }, [note.id, onDelete, autosaveResult])
 
-  // Load note content when note changes - but don't cause re-renders
+  // Track previous note id to ensure updates when switching notes
+  const prevNoteIdRef = useRef<string | undefined>(undefined)
+
+  // Load note content when note changes, but avoid overwriting while user is actively typing
   useEffect(() => {
     const newTitle = note.title || ''
     const newContent = normalizeImageUrls(note.content || '')
-    
-    setNoteTitle(newTitle)
-    setNoteContent(newContent)
-  }, [note.id, note.title, note.content]) // Include all note properties used in effect
+
+    const isNoteSwitched = prevNoteIdRef.current !== note.id
+    prevNoteIdRef.current = note.id
+
+    // Title: only update if input not focused or note switched
+    const isTitleFocused = typeof document !== 'undefined' && document.activeElement === titleInputRef.current
+    if (isNoteSwitched || !isTitleFocused) {
+      if (newTitle !== noteTitle) {
+        setNoteTitle(newTitle)
+      }
+    }
+
+    // Content: only update if editor not focused or note switched
+    const isEditorFocused = !!editorRef.current?.editor?.isFocused
+    if (isNoteSwitched || !isEditorFocused) {
+      if (newContent !== noteContent) {
+        setNoteContent(newContent)
+      }
+    }
+  }, [note.id, note.title, note.content, noteTitle, noteContent])
+
+  // When the editor loses focus, refresh local content from latest server cache
+  useEffect(() => {
+    const ed = editorRef.current?.editor
+    if (!ed) return
+    const handler = () => {
+      const latest = normalizeImageUrls(note.content || '')
+      setNoteContent(prev => (prev === latest ? prev : latest))
+    }
+    ed.on('blur', handler)
+    return () => {
+      ed.off('blur', handler)
+    }
+  }, [note.id, note.content])
 
   // Stable callback for content changes
   const handleContentChange = useCallback((content: string) => {
@@ -322,12 +353,13 @@ const NotesEditorWrapper = ({
 
   // Memoize the editor props to prevent re-creation - critical for performance
   const editorProps = useMemo(() => ({
-    initialContent: normalizeImageUrls(note.content || ''),
+    // Drive editor from local state to avoid resets on autosave cache updates
+    initialContent: noteContent,
     onContentChange: handleContentChange,
     noteId: note.id,
-    noteTitle: note.title || '',
+    noteTitle: noteTitle,
     noteUpdated: note.updated
-  }), [note.content, note.id, note.title, note.updated, handleContentChange])
+  }), [noteContent, noteTitle, note.id, note.updated, handleContentChange])
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -338,6 +370,7 @@ const NotesEditorWrapper = ({
             type="text"
             value={noteTitle}
             onChange={(e) => handleTitleChange(e.target.value)}
+            ref={titleInputRef}
             className="max-w-md text-lg font-semibold sm:text-xl border-none frappe:border"
             placeholder="Note title..."
           />
