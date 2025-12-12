@@ -105,13 +105,15 @@ export const ImageUploadNode = Node.create<ImageUploadNodeOptions>({
     return {
       setImageUploadNode:
         (options = {}) =>
-        ({ commands }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ({ commands }: { commands: any }) => {
           return commands.insertContent({
             type: this.name,
             attrs: options,
           })
         },
-    }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any
   },
 
   /**

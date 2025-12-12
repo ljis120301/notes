@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react'
 import { SimpleEditor, SimpleEditorRef } from './tiptap-templates/simple/simple-editor'
+import type { Editor } from '@tiptap/react'
 import { Button } from '@/components/ui/button'
 import { Trash2, Share, FileText, Download, Upload, CheckCircle } from 'lucide-react'
 import { Note } from '@/lib/pocketbase'
@@ -87,7 +88,10 @@ const NotesEditorWrapper = ({
     setIsExporting(true)
     document.body.classList.add('cursor-wait')
     try {
-      await editor.commands.exportDocument(format)
+      // Type assertion needed due to TipTap type system limitations with async commands
+      await (editor.commands as Editor['commands'] & {
+        exportDocument: (format: ExportFormat) => Promise<boolean>
+      }).exportDocument(format)
       toast.success(`Document exported as ${format.toUpperCase()}`)
     } catch (error) {
       toast.error('Export failed')
@@ -113,7 +117,10 @@ const NotesEditorWrapper = ({
       toast.loading(`Importing ${file.name}...`, { id: toastId })
       setImportProgress(10)
       
-      const success = editor.commands.importDocument(file)
+      // Type assertion needed due to TipTap type system limitations with async commands
+      const success = await (editor.commands as Editor['commands'] & {
+        importDocument: (file: File) => Promise<boolean>
+      }).importDocument(file)
 
       if (!success) {
         throw new Error('Import command failed')

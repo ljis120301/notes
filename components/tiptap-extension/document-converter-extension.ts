@@ -1,16 +1,21 @@
-import { Extension } from '@tiptap/core'
-import type { Editor } from '@tiptap/react'
+import { Extension, type Editor } from '@tiptap/core'
 import TurndownService from 'turndown'
 import { saveAs } from 'file-saver'
 
-declare module "@tiptap/react" {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     documentConverter: {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      exportDocument: (format: 'pdf' | 'docx' | 'markdown' | 'html' | 'json') => any
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      importDocument: (file: File) => any
+      exportDocument: (format: 'pdf' | 'docx' | 'markdown' | 'html' | 'json') => ReturnType
+      importDocument: (file: File) => ReturnType
+    }
+  }
+}
+
+declare module "@tiptap/react" {
+  interface Commands<ReturnType> {
+    documentConverter: {
+      exportDocument: (format: 'pdf' | 'docx' | 'markdown' | 'html' | 'json') => ReturnType
+      importDocument: (file: File) => ReturnType
     }
   }
 }
@@ -1039,7 +1044,8 @@ export const DocumentConverterExtension = Extension.create<DocumentConverterOpti
           return false
         }
       }
-    }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any
   }
 })
 

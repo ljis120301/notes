@@ -86,7 +86,7 @@ function NoteSkeleton() {
     <Card className="transition-colors duration-150">
       <CardContent className="p-2 sm:p-2.5">
         <div className="flex items-start space-x-2 sm:space-x-3">
-          <Skeleton className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <Skeleton className="w-4 h-4 mt-0.5 shrink-0" />
           <div className="flex-1 min-w-0 space-y-1.5">
             <Skeleton className="h-3.5 w-3/4" />
             <Skeleton className="h-3 w-full" />
@@ -208,7 +208,7 @@ const NoteItem = memo(function NoteItem({
           >
             {/* Selection Checkbox (in edit mode) */}
             {isEditMode && (
-              <div className="ml-3 flex items-center justify-center flex-shrink-0">
+              <div className="ml-3 flex items-center justify-center shrink-0">
                 <Checkbox
                   checked={isSelected}
                   onCheckedChange={(checked) => {
@@ -220,7 +220,7 @@ const NoteItem = memo(function NoteItem({
             )}
             
             {/* File Icon */}
-            <div className={`w-10 h-10 ${isEditMode ? 'ml-2' : 'ml-3'} rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
+            <div className={`w-10 h-10 ${isEditMode ? 'ml-2' : 'ml-3'} rounded-lg flex items-center justify-center shrink-0 transition-all duration-300 ${
               note.pinned && !isInFolder
                 ? 'bg-sidebar-primary/40 shadow-md'
                 : 'bg-sidebar-primary/25'
@@ -259,7 +259,7 @@ const NoteItem = memo(function NoteItem({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className={`pin-button h-6 w-6 p-0 transition-opacity duration-200 flex-shrink-0 hover:bg-sidebar-accent/50 rounded ${
+                              className={`pin-button h-6 w-6 p-0 transition-opacity duration-200 shrink-0 hover:bg-sidebar-accent/50 rounded ${
                                 note.pinned ? 'opacity-80 hover:opacity-100' : 'opacity-40 hover:opacity-80'
                               }`}
                               onClick={(event) => onTogglePin(note, event)}

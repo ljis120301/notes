@@ -635,7 +635,8 @@ export const SimpleEditor = React.memo(React.forwardRef<SimpleEditorRef, SimpleE
         }
       },
     },
-    extensions,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    extensions: extensions as any,
     content: initialContent,
     onUpdate: ({ editor }) => {
       // 🚀 ABSOLUTE MINIMAL processing - just call the debounced function
