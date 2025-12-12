@@ -445,12 +445,15 @@ export async function POST(request: NextRequest) {
     // Close browser
     await browser.close()
 
+    // Convert Uint8Array to Buffer for NextResponse compatibility
+    const pdfBuffer = Buffer.from(pdf)
+
     // Return PDF as response
-    return new NextResponse(pdf, {
+    return new NextResponse(pdfBuffer, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': 'attachment; filename="document.pdf"',
-        'Content-Length': pdf.length.toString(),
+        'Content-Length': pdfBuffer.length.toString(),
       },
     })
 
