@@ -81,7 +81,8 @@ export const TableContextMenu: React.FC<TableContextMenuProps> = ({ children }) 
 
   const handleDeleteTable = React.useCallback(async () => {
     await saveContentBeforeModification()
-    editor?.commands.deleteCurrentTable()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    editor && (editor.commands as any).deleteCurrentTable()
   }, [editor, saveContentBeforeModification])
 
   const handleMergeCells = React.useCallback(async () => {

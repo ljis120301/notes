@@ -344,7 +344,7 @@ export function ProfileSelector({ selectedProfile, onSelectProfile, isAuthentica
               {selectedProfile ? (
                 <div className="flex items-center space-x-2 min-w-0">
                   <div
-                    className="w-3 h-3 rounded-full flex-shrink-0"
+                    className="w-3 h-3 rounded-full shrink-0"
                     style={{ backgroundColor: selectedProfile.color || '#3b82f6' }}
                   />
                   <span className="truncate">{selectedProfile.name}</span>
@@ -376,10 +376,10 @@ export function ProfileSelector({ selectedProfile, onSelectProfile, isAuthentica
                       >
                         <div className="flex items-center space-x-2 flex-1 min-w-0">
                           <div
-                            className="w-3 h-3 rounded-full flex-shrink-0"
+                            className="w-3 h-3 rounded-full shrink-0"
                             style={{ backgroundColor: profile.color || '#3b82f6' }}
                           />
-                          <IconComponent className="h-4 w-4 flex-shrink-0 text-sidebar-foreground/70" />
+                          <IconComponent className="h-4 w-4 shrink-0 text-sidebar-foreground/70" />
                           <span className="truncate">{profile.name}</span>
                           {profile.is_default && (
                             <span className="text-xs text-sidebar-foreground/50">(default)</span>

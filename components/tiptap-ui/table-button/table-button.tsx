@@ -73,14 +73,16 @@ export const TableButton = () => {
 
   const handleDeleteTable = () => {
     if (editor && isInsideTable) {
-      editor.commands.deleteCurrentTable()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (editor.commands as any).deleteCurrentTable()
       setIsOpen(false)
     }
   }
 
   const handleSelectTable = () => {
     if (editor && isInsideTable) {
-      editor.commands.selectCurrentTable()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (editor.commands as any).selectCurrentTable()
       setIsOpen(false)
     }
   }
@@ -168,7 +170,7 @@ export const TableButton = () => {
             {/* Tips section with refined styling */}
             <div className="space-y-3">
               <div className="flex items-start gap-3 text-xs text-muted-foreground">
-                <div className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5 hover:bg-primary/20">
+                <div className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5 hover:bg-primary/20">
                   <span className="text-[10px] text-primary">💡</span>
                 </div>
                 <div>
@@ -178,7 +180,7 @@ export const TableButton = () => {
               </div>
               
               <div className="flex items-start gap-3 text-xs text-muted-foreground">
-                <div className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5 hover:bg-primary/20">
+                <div className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5 hover:bg-primary/20">
                   <span className="text-[10px] text-primary">⌨️</span>
                 </div>
                 <div>

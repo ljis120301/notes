@@ -1,5 +1,5 @@
-import { Extension } from '@tiptap/core'
-import { Plugin, PluginKey } from '@tiptap/pm/state'
+import { Extension, type Editor } from '@tiptap/core'
+import { Plugin, PluginKey, type Transaction, type EditorState } from '@tiptap/pm/state'
 import { EditorView } from '@tiptap/pm/view'
 import { NodeSelection } from '@tiptap/pm/state'
 
@@ -47,7 +47,7 @@ export const TableManagementExtension = Extension.create<TableManagementOptions>
 
   addCommands() {
     return {
-      insertTableSafe: (options = {}) => ({ editor, state }) => {
+      insertTableSafe: (options = {}) => ({ editor, state }: { editor: Editor; state: EditorState }) => {
         if (this.options.preventNestedTables) {
           // Check if cursor is inside a table
           const { $from } = state.selection
@@ -60,10 +60,11 @@ export const TableManagementExtension = Extension.create<TableManagementOptions>
         }
         
         // Use the original insertTable command if not inside a table
-        return editor.commands.insertTable(options)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return (editor.commands as any).insertTable(options)
       },
 
-      deleteCurrentTable: () => ({ tr, dispatch }) => {
+      deleteCurrentTable: () => ({ tr, dispatch }: { tr: Transaction; dispatch?: (tr: Transaction) => void }) => {
         const { selection } = tr
         const { $from } = selection
 
@@ -91,7 +92,7 @@ export const TableManagementExtension = Extension.create<TableManagementOptions>
         return false
       },
 
-      selectCurrentTable: () => ({ tr, dispatch }) => {
+      selectCurrentTable: () => ({ tr, dispatch }: { tr: Transaction; dispatch?: (tr: Transaction) => void }) => {
         const { selection } = tr
         const { $from } = selection
 
@@ -119,7 +120,8 @@ export const TableManagementExtension = Extension.create<TableManagementOptions>
 
         return false
       },
-    }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any
   },
 
   addKeyboardShortcuts() {
@@ -157,7 +159,8 @@ export const TableManagementExtension = Extension.create<TableManagementOptions>
         for (let depth = $from.depth; depth > 0; depth--) {
           const node = $from.node(depth)
           if (node.type.name === 'table') {
-            return editor.commands.selectCurrentTable()
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            return (editor.commands as any).selectCurrentTable()
           }
         }
 
@@ -166,12 +169,14 @@ export const TableManagementExtension = Extension.create<TableManagementOptions>
 
       // Ctrl/Cmd + Shift + D to delete current table
       'Mod-Shift-d': ({ editor }) => {
-        return editor.commands.deleteCurrentTable()
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return (editor.commands as any).deleteCurrentTable()
       },
 
       // Ctrl/Cmd + Shift + A to select current table
       'Mod-Shift-a': ({ editor }) => {
-        return editor.commands.selectCurrentTable()
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return (editor.commands as any).selectCurrentTable()
       },
     }
   },
@@ -208,8 +213,10 @@ export const TableManagementExtension = Extension.create<TableManagementOptions>
   onCreate() {
     if (this.editor && this.options.preventNestedTables) {
       // Override with our safe version
-      this.editor.commands.insertTable = (options = {}) => {
-        return this.editor.commands.insertTableSafe(options)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (this.editor.commands as any).insertTable = (options = {}) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return (this.editor.commands as any).insertTableSafe(options)
       }
     }
   },

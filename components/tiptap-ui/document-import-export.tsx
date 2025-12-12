@@ -24,6 +24,7 @@ import { Progress } from "@/components/ui/progress"
 import { useTiptapEditor } from "@/hooks/use-tiptap-editor"
 import { cn } from "@/lib/tiptap-utils"
 import { toast } from "sonner"
+import type { Editor } from "@tiptap/react"
 import { 
   Download, 
   Upload, 
@@ -98,7 +99,10 @@ export function DocumentImportExport({ className }: DocumentImportExportProps) {
       console.log(`🔄 Calling editor.commands.exportDocument(${format})`)
       
       // Call the export command (this will trigger the actual PDF generation)
-      const success = editor.commands.exportDocument(format)
+      // Type assertion needed due to TipTap type system limitations with async commands
+      const success = await (editor.commands as Editor['commands'] & {
+        exportDocument: (format: string) => Promise<boolean>
+      }).exportDocument(format)
       
       if (!success) {
         throw new Error(`Export command failed for ${format}`)
@@ -237,7 +241,10 @@ export function DocumentImportExport({ className }: DocumentImportExportProps) {
       setImportProgress(10)
 
       // Call the extension's import command
-      const success = editor.commands.importDocument(file)
+      // Type assertion needed due to TipTap type system limitations with async commands
+      const success = await (editor.commands as Editor['commands'] & {
+        importDocument: (file: File) => Promise<boolean>
+      }).importDocument(file)
       
       if (!success) {
         throw new Error('Import command failed')
